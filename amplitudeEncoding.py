@@ -1,7 +1,7 @@
 import cirq
 import numpy as np
 
-"""Corrected function TRANSLATED 
+"""Corrected function TRANSLATED calculate_bloch_angles and rotations_to_disentangle""" 
 
 def calculate_bloch_angles(pair_of_complex):
     a_complex, b_complex = pair_of_complex
@@ -37,7 +37,7 @@ def rotations_to_disentangle(local_param):
         phis.append(-add_phi)
     
     return thetas, phis
-"""
+
 
 
 def PCNOT(T): #Are the index rights?
@@ -72,8 +72,8 @@ def QSP(circuit, n_levels, H, V, rotation, phase):
                 circuit.append(cirq.SWAP(H[l][2*j], H[l-1][j]))
     
     for j in range((2 * n_levels)-1):
-        ph = phase[j]
-        #circuit.append(cirq.PhasedXPowGate(phase_exponent=ph).on(H[n_levels-1][j]))
+        ph = phase[j-1]
+        circuit.append(cirq.PhasedXPowGate(phase_exponent=ph).on(H[n_levels-1][j-1]))
         #TO FIX!
 
     for l in range(1, n_levels):
@@ -100,7 +100,7 @@ def QSP(circuit, n_levels, H, V, rotation, phase):
     
     for l in range(1, n_levels):
         Fanout(V[l])
-
+"""
 def initValues(normalized_data, n_levels, rotation, phase): #TO FIX!
     # Inizializzare b come un array multidimensionale
     b = np.zeros((n_levels, 2**(n_levels-1)), dtype=float)
@@ -125,13 +125,18 @@ def initValues(normalized_data, n_levels, rotation, phase): #TO FIX!
     print("rotation:\n", rotation)
     print("phase:\n", phase)
 
-D = [0.25 + 0j, 0.75 +0j]#Normalizzazione di D
+    return rotation,phase
+"""
+
+D = np.array([0.20 + 0.3j, 0.70 - 0.1j, 0.05 + 0.2j, 0.05 - 0.1j])
 norm = np.linalg.norm(D)
 normalized_data = D / norm
 
 circuit = cirq.Circuit()
 # Numero di livelli nell'albero binario
-n_levels = len(normalized_data)
+
+n_levels = int(np.ceil(np.log2(len(normalized_data))))
+
 
 # Creazione di H come lista di liste di qubit
 H = [cirq.LineQubit.range(2**i) for i in range(n_levels)]
@@ -146,9 +151,7 @@ circuit.append(cirq.measure(H[0][0], key='result'))
 rotation = np.zeros((n_levels, 2**(n_levels-1)))
 phase = np.random.uniform(0, 2*np.pi, size=(2 * n_levels - 1))
 
-# Chiamata alla funzione initValues 
-#initValues(normalized_data, n_levels, rotation, phase)
-
+rotation, phase = rotations_to_disentangle(normalized_data)
 
 QSP(circuit, n_levels, H, V, rotation, phase)
 
