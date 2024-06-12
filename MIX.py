@@ -15,6 +15,11 @@ from qiskit import QuantumCircuit
 from qiskit.visualization import plot_histogram
 import matplotlib.pyplot as plt
 
+def FromFileToStateVector(file_path):
+    processor = readMINST.MINSTImageProcessor()
+    binary_array = processor.produceArray(file_path, 45)
+    normalizzazione(binary_array)
+
 def measure_statevector(quantum_state, num_qubits):
     
     # Crea un circuito quantistico con il numero di qubit corrispondente
@@ -90,20 +95,28 @@ def normalizzazione(binary_array):
     flattened_matrice = vectorized_matrix.flatten()    
     # Itera attraverso ogni riga della matrice
 
+    # printKet(vectorized_matrix,num_digits)
 
-    #printKet(vectorized_matrix,num_digits)
+    #measure_statevector(quantum_state,num_qubits)
+    return quantum_state
 
-    measure_statevector(quantum_state,num_qubits)
+def ChooseRandomIMG(rdn):
+    if rdn == 1:
+        file_path = ".\\MINST_DATA\\t10k-images.idx3-ubyte"
+    elif rdn == 2:
+        file_path = ".\\MINST_DATA\\t10k-labels.idx1-ubyte"
+    elif rdn == 3:
+        file_path = ".\\MINST_DATA\\train-images.idx3-ubyte"
+    elif rdn == 4:
+        file_path = ".\\MINST_DATA\\train-labels.idx1-ubyte"
+    return file_path
+    
 
 current_dir = os.path.dirname(os.path.realpath(__file__))
-file_path = os.path.join(current_dir, 't10k-images.idx3-ubyte')
+f = ChooseRandomIMG(2)
+file_path = os.path.join(current_dir, f)
+FromFileToStateVector(file_path)
 
-processor = readMINST.MINSTImageProcessor()
-binary_array = processor.produceArray(file_path, 45)
-
-b = np.array([[1., 1.],
- [1., 1.]])
-normalizzazione(binary_array)
 
 
 

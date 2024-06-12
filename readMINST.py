@@ -25,7 +25,7 @@ class MINSTImageProcessor:
         # Crea un array binario: 0 per bianco, 1 per nero
         binary_array = np.where(img_array > threshold, 0, 1)
 
-        #print("Matrix shape: ",binary_array.shape)  # Mostra le dimensioni dell'array
+        print("Matrix shape: ",binary_array.shape)  # Mostra le dimensioni dell'array
         #print(binary_array)  # Mostra l'array binario
         return binary_array
 
