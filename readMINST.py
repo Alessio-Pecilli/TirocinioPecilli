@@ -13,6 +13,7 @@ class MINSTImageProcessor:
     def produceArray(self, file_path, index):
         images = self.read_minst_images(file_path)
         img = images[index]
+        #self.display_image(file_path, index)
         # Converti l'immagine in scala di grigi GIA' E' BIANCO O NERO
         #img_gray = img.convert('L')
 
@@ -24,8 +25,8 @@ class MINSTImageProcessor:
         # Crea un array binario: 0 per bianco, 1 per nero
         binary_array = np.where(img_array > threshold, 0, 1)
 
-        print("Matrix shape: ",binary_array.shape)  # Mostra le dimensioni dell'array
-        print(binary_array)  # Mostra l'array binario
+        #print("Matrix shape: ",binary_array.shape)  # Mostra le dimensioni dell'array
+        #print(binary_array)  # Mostra l'array binario
         return binary_array
 
     def read_minst_images(self, file_path):

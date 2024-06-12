@@ -22,8 +22,8 @@ class QuantumStateConverter:
         return padded_matrix
 
     def to_quantum_state(self, binary_array):
-        if(np.log2(len(binary_array) ) % 1 != 0):
-            binary_array = self.extend_to_power_of_two(binary_array)
+        #if(np.log2(len(binary_array) ) % 1 != 0):
+            #binary_array = self.extend_to_power_of_two(binary_array)
 
         # Trasformiamo la matrice in un vettore colonna
         binary_array = binary_array.flatten()
@@ -38,8 +38,10 @@ class QuantumStateConverter:
         num_qubits = int(np.log2(len(binary_array)))
         num_digits = num_qubits if num_qubits > 0 else 1
 
-        print("∣ψ> = ")
-        for i, amplitude in enumerate(binary_array):
-            if amplitude != 0:
-                print(f"{c} * |{i:0{num_digits}b}> +")
+        return binary_array
+
+        #print("∣ψ> = ")
+        #for i, amplitude in enumerate(binary_array):
+            #if amplitude != 0:
+                #print(f"{c} * |{i:0{num_digits}b}> +")
 

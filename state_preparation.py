@@ -14,10 +14,8 @@
 import cmath
 from typing import Union, Optional
 
-from qiskit import QuantumCircuit
-from qiskit.quantum_info import Statevector
-import numpy as np
 import math
+import numpy as np
 
 from qiskit.exceptions import QiskitError
 from qiskit.circuit.quantumcircuit import QuantumCircuit
