@@ -11,6 +11,7 @@ from scipy.optimize import minimize
 import matplotlib.pyplot as plt
 import numpy as np
 import cirq
+import os
 import sympy
 from qiskit.circuit.library import RXGate, RYGate, RZGate
 import cirq_google
@@ -24,8 +25,9 @@ n = 10
 nreps = 10
 method = "COBYLA"
 q = 0.5
+
 #maxiter = 1000
-maxiter = 1
+maxiter = 10
 
 # =============================================================================
 # Functions
@@ -67,7 +69,6 @@ if __name__ == "__main__":
     num_qubits = vqsd._num_qubits
 
 # Create rotation gates with these parameters
-
     vqsd.product_ansatz(symbol_list_for_product(num_qubits), RXGate)
 
     def get_param_resolver(num_qubits, num_layers):
@@ -193,31 +194,38 @@ if __name__ == "__main__":
     plt.xlabel("Iteration", fontsize=15, fontweight="bold")
     plt.ylabel("Cost", fontsize=15, fontweight="bold")
     
-    # Save the figure
+    
+    # Generazione di un timestamp per il nome del file
     t = time.strftime('%Y-%m-%d_%H-%M-%S')
-    safe_title = re.sub(r'[^a-zA-Z0-9_\-]', '', title.replace(' ', '_'))
-    plt.savefig(safe_title + '_' + t + '.pdf', format='pdf')
-    
-    # =========================================================================
-    # Write the data to a text file
-    # =========================================================================
 
+    # Pulizia del titolo per essere un nome di file valido
+    safe_title = re.sub(r'[^a-zA-Z0-9_\-]', '', title.replace(' ', '_'))
+
+    # Percorso di salvataggio
+    save_path = r'C:\Users\Ale\Desktop\uni\TirocinioPecilli\PURE_STATE\FILE_GENERATED'
+
+    # Assicurati che la directory esista
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
+
+    # Salva il grafico in PDF
+    pdf_filename = os.path.join(save_path, f"{safe_title}_{t}.pdf")
+    plt.savefig(pdf_filename, format='pdf')
+
+    # Salva i dati in un file di testo
     costs = [process(OBJPDIPS),
-             process(OBJDIPS),
-             process(OBJGLOBALDIPS),
-             process(QOBJS),
-             process(OBJQDIPS)]
-    
+            process(OBJDIPS),
+            process(OBJGLOBALDIPS),
+            process(QOBJS),
+            process(OBJQDIPS)]
+
     # Pad the lengths
-    maxlen = max([len(a) for a in costs])
+    maxlen = max(len(a) for a in costs)
     for a in costs:
         while len(a) < maxlen:
             a.append(a[-1])
 
     data = np.array(costs)
-    
-    fname = title + t + ".txt"
-    
-    np.savetxt(fname, data.T)
-    
+    txt_filename = os.path.join(save_path, f"{title}_{t}.txt")
+    np.savetxt(txt_filename, data.T)
 

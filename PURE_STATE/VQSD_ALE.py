@@ -12,6 +12,7 @@ from qiskit.circuit import Parameter
 from qiskit.circuit.library import RXGate, RYGate, RZGate
 from qiskit import transpile, assemble, QuantumRegister, QuantumCircuit, ClassicalRegister
 import numpy as np
+from qiskit.exceptions import QiskitError
 import qiskit_aer
 from qiskit_aer import Aer
 from qiskit_aer import AerSimulator
@@ -66,6 +67,7 @@ class VQSD:
         
         self._total_num_qubits = 2 * self._num_qubits
         self.qubits = QuantumRegister(self._total_num_qubits, name='q')
+        self.qubits = QuantumRegister(20, name='q')
 
         # key for measurements and statistics
         self._measure_key = measure_key
@@ -98,6 +100,7 @@ class VQSD:
     def clear_dip_test_circ(self):
         """Sets the dip test circuit to be a new, empty circuit."""
         self.dip_test_circ = QuantumCircuit(self.qubits)
+        #print("A DIP DO CL: ", self.dip_test_circ.num_clbits)
 
     # =========================================================================
     # circuit methods
@@ -114,16 +117,16 @@ class VQSD:
         # make sure the number of parameters is correct
         if len(params) != self._num_qubits:
             raise ValueError("Incorrect number of parameters.")
-        #print("len param: ", len(params))
+        ##print("len param: ", len(params))
     
         n = self._num_qubits
 
-        #print("num q: ", n)
+        ##print("num q: ", n)
         
         for ii in range(len(params)):
             g = gate(params[ii])
             # Calcola l'indice del secondo qubit, assicurandosi che sia valido
-            #print("Guarda" , ii+n)
+            ##print("Guarda" , ii+n)
             self.unitary_circ.append(g, [self.qubits[ii]])
             self.unitary_circ.append(g, [self.qubits[ii+n]])
             
@@ -328,49 +331,34 @@ class VQSD:
         cr = ClassicalRegister(len(qubits_to_measure), 'cr')  # Aggiungi un nome al registro
         self.dip_test_circ.add_register(cr)  # Aggiungi questa linea
         self.dip_test_circ.measure(qubits_to_measure, cr)
+        ##print(f"Misurazione aggiunta per i qubit: {qubits_to_measure}")
     
-    def pdip_test(self, pdip_qubit_indices):
-        """Implements the partial dip test circuit.
+    def pdip_test(self, pdip_qubit_indices): 
+        #print("pdip_qubit_indices ", pdip_qubit_indices)
         
-        Args:
-            pdip_qubit_indices : list
-                List of qubit indices (j in the paper) to do the pdip test on.
-        
-        Modifies:
-            self.dip_test_circ
-        """
-        # do the cnots
+        # Fai i CNOT
         for ii in range(self._num_qubits):
-            self.dip_test_circ.cx(self.qubits[ii + self._num_qubits],self.qubits[ii])
+            self.dip_test_circ.cx(self.qubits[ii + self._num_qubits], self.qubits[ii])
         
-        # add a Hadamard on each qubit not in the PDIP test
+        # Aggiungi Hadamard sui qubit non in PDIP test
         all_qubit_indices = set(range(self._num_qubits))
-        qubit_indices_to_hadamard = list(
-            all_qubit_indices - set(pdip_qubit_indices)
-        )
-        qubits_to_hadamard = [self.qubits[ii + self._num_qubits]
-                              for ii in qubit_indices_to_hadamard]
+        qubit_indices_to_hadamard = list(all_qubit_indices - set(pdip_qubit_indices))
+        qubits_to_hadamard = [self.qubits[ii + self._num_qubits] for ii in qubit_indices_to_hadamard]
         for qubit in qubits_to_hadamard:
             self.dip_test_circ.h(qubit)
         
-        # add the measurements for the dip test
-        num_measure = self._num_qubits
-
-        # Create a new classical register
-
-        qubits_to_measure = [self.qubits[ii] for ii in pdip_qubit_indices]
-        cr = ClassicalRegister(len(qubits_to_measure), 'cr')  # Aggiungi un nome al registro
-        self.dip_test_circ.add_register(cr)  # Aggiungi questa linea
-        self.dip_test_circ.measure(qubits_to_measure, cr)
+        # Crea due registri classici separati per DIP e PDIP
+        cr_dip = ClassicalRegister(self._num_qubits, 'cr_dip')
+        cr_pdip = ClassicalRegister(self._num_qubits, 'cr_pdip')
+        self.dip_test_circ.add_register(cr_dip)
+        self.dip_test_circ.add_register(cr_pdip)
         
-        # add the measurements for the destructive swap test on the pdip qubits
-        pdip_qubits = [self.qubits[ii] for ii in qubit_indices_to_hadamard] \
-                      + qubits_to_hadamard
-        # edge case: no qubits in pdip set
-        if len(pdip_qubits) > 0:
-            cr_pdip = ClassicalRegister(len(pdip_qubits), name=self._pdip_key)
-            self.dip_test_circ.add_register(cr_pdip)
-            self.dip_test_circ.measure(pdip_qubits, cr_pdip)
+        # Misura i qubit DIP
+        self.dip_test_circ.measure(self.qubits[:self._num_qubits], cr_dip)
+        
+        # Misura i qubit PDIP
+        pdip_qubits = [self.qubits[ii + self._num_qubits] for ii in pdip_qubit_indices]
+        self.dip_test_circ.measure(pdip_qubits, cr_pdip[:len(pdip_qubit_indices)])
             
 
     def state_overlap(self):
@@ -444,44 +432,55 @@ class VQSD:
 
         # number of qubits and number of repetitions of the circuit
     def state_overlap_postprocessing(self, output):
-        print("\n--- Inizio state_overlap_postprocessing ---")
-        print(f"Input ricevuto: {output}")
+        #print("\n--- Inizio state_overlap_postprocessing ---")
+        #print(f"Input ricevuto: {output}")
+        
+        # Converti l'input in un array numpy se non lo è già
         output = np.array(output)
+        
+        # Se l'input è una stringa, convertila in un array di interi
+        if output.dtype.kind == 'U':
+            output = np.array([[int(bit) for bit in row] for row in output])
+        
         if output.ndim == 1:
             output = output.reshape(1, -1)
-        if output.shape[1] == 1:
-            output = np.repeat(output, 2, axis=1)
         
-        print(f"Output dopo il reshape: {output}")
+        #print(f"Output dopo il reshape: {output}")
         
         (nreps, nqubits) = output.shape
-        print(f"nreps: {nreps}, nqubits: {nqubits}")
+        #print(f"nreps: {nreps}, nqubits: {nqubits}")
 
-        assert nqubits % 2 == 0, "Input is not a valid shape."
-
+        # Se il numero di qubits è dispari, aggiungi una colonna di zeri
+        if nqubits % 2 != 0:
+            output = np.pad(output, ((0, 0), (0, 1)), mode='constant')
+            nqubits += 1
+            #print(f"Numero dispari di qubits. Aggiunta una colonna di zeri. Nuovo nqubits: {nqubits}")
+        
         overlap = 0.0
 
         shift = nqubits // 2
         for z in output:
             parity = 1
-            pairs = [z[ii] and z[ii + shift] for ii in range(shift)]
-            print(f"Coppie: {pairs}")
+            pairs = [(z[ii], z[ii + shift]) for ii in range(shift)]
+            #print(f"Coppie: {pairs}")
             for pair in pairs:
-                parity *= (-1)**pair
+                parity *= (-1)**(pair[0] and pair[1])
             overlap += parity
-            print(f"Parity: {parity}, Current overlap: {overlap}")
+            #print(f"Parity: {parity}, Current overlap: {overlap}")
 
         final_overlap = overlap / nreps
-        print(f"Overlap finale: {final_overlap}")
-        print("--- Fine state_overlap_postprocessing ---\n")
+        #print(f"Overlap finale: {final_overlap}")
+        #print("--- Fine state_overlap_postprocessing ---\n")
         return final_overlap
+
+
 
     # =========================================================================
     # methods for running the circuit and getting the objective function
     # =========================================================================
 
     def algorithm(self):
-        #print("ENTRO IN algorithm")
+        ##print("ENTRO IN algorithm")
         """Returns the total algorithm of the VQSD circuit, which consists of
         state preperation, diagonalizing unitary, and dip test.
 
@@ -497,7 +496,7 @@ class VQSD:
         #dip_test_circ - num_qubits: 20, num_clbits: 19
         maxQ = max(self.state_prep_circ.num_qubits,self.unitary_circ.num_qubits,self.dip_test_circ.num_qubits)
         maxC = max(self.state_prep_circ.num_clbits,self.unitary_circ.num_clbits,self.dip_test_circ.num_clbits)
-        combined_circuit = QuantumCircuit(maxQ, maxC)
+        combined_circuit = QuantumCircuit(20, 20)
 
         # Componi state_prep_circ
         combined_circuit.compose(self.state_prep_circ, qubits=range(self.state_prep_circ.num_qubits), clbits=range(self.state_prep_circ.num_clbits), inplace=True)
@@ -507,26 +506,29 @@ class VQSD:
 
         # Componi dip_test_circ
         combined_circuit.compose(self.dip_test_circ, qubits=range(self.dip_test_circ.num_qubits),clbits=range(self.dip_test_circ.num_clbits), inplace=True)
-        #self.prep_state.printCircuit(combined_circuit)
-        print(f"Parametri nel circuito combinato: {combined_circuit.parameters}")
+        #self.prep_state.#printCircuit(combined_circuit)
+        ##print(f"Parametri nel circuito combinato: {combined_circuit.parameters}")
+        #print(f"combined_circuit - num_qubits: {combined_circuit.num_qubits}, num_clbits: {combined_circuit.num_clbits}")
         
         return combined_circuit
 
     def resolved_algorithm(self, angles):
-        #print("ENTRO IN resolved_algorithm")
+        ##print("ENTRO IN resolved_algorithm")
         circuit = self.algorithm()
+        #print("QUESTO normale HA CLBITS: ",circuit.num_clbits)
         params = list(circuit.parameters)
         
         if len(angles) < len(params):
-            #print(f"Attenzione: forniti {len(angles)} angoli, ma il circuito ha {len(params)} parametri.")
+            ##print(f"Attenzione: forniti {len(angles)} angoli, ma il circuito ha {len(params)} parametri.")
             # Estendi angles con valori casuali se necessario
             angles = list(angles) + [np.random.uniform(0, 2*np.pi) for _ in range(len(params) - len(angles))]
         elif len(angles) > len(params):
-            #print(f"Attenzione: forniti {len(angles)} angoli, ma il circuito ha solo {len(params)} parametri.")
+            ##print(f"Attenzione: forniti {len(angles)} angoli, ma il circuito ha solo {len(params)} parametri.")
             angles = angles[:len(params)]
         
         param_dict = dict(zip(params, angles))
         resolved_circuit = circuit.assign_parameters(param_dict)
+        #print("QUESTO RISOLTO HA CLBITS: ",resolved_circuit.num_clbits)
         
         if resolved_circuit.parameters:
             print("Attenzione: alcuni parametri non sono stati risolti:", resolved_circuit.parameters)
@@ -540,35 +542,35 @@ class VQSD:
 
         rtype: cirq.TrialResult
         """
-        return simulator.run(self.algorithm(), repetitions=repetitions)
+        return simulator.run(self.algorithm(), repetitions=repetitions, memory = True)
 
     def run_resolved(self, angles, simulator=Aer.get_backend('aer_simulator'), repetitions=1000):
-        print("\n--- Inizio run_resolved ---")
-        print(f"Angoli ricevuti: {angles}")
-        print(f"Numero di ripetizioni: {repetitions}")
+        #print("\n--- Inizio run_resolved ---")
+        #print(f"Angoli ricevuti: {angles}")
+        #print(f"Numero di ripetizioni: {repetitions}")
         
         circuit = self.resolved_algorithm(angles)
         
         if circuit.parameters:
-            print("Parametri non risolti:", circuit.parameters)
+            #print("Parametri non risolti:", circuit.parameters)
             param_binds = [{param: np.random.uniform(0, 2*np.pi) for param in circuit.parameters}]
-            print(f"Binding dei parametri: {param_binds}")
-            job = simulator.run(circuit, shots=repetitions, parameter_binds=param_binds)
+            #print(f"Binding dei parametri: {param_binds}")
+            job = simulator.run(circuit, shots=repetitions, parameter_binds=param_binds, memory = True)
         else:
-            job = simulator.run(circuit, shots=repetitions)
+            job = simulator.run(circuit, shots=repetitions, memory = True)
         
         try:
             result = job.result()
-            print("Esecuzione del job completata con successo")
+            #print("Esecuzione del job completata con successo")
             return result
         except Exception as e:
-            print(f"Errore durante l'esecuzione del job: {str(e)}")
-            print("Circuito:")
-            print(circuit)
-            print("Parametri del circuito:", circuit.parameters)
+            #print(f"Errore durante l'esecuzione del job: {str(e)}")
+            #print("Circuito:")
+            #print(circuit)
+            #print("Parametri del circuito:", circuit.parameters)
             return None
-        finally:
-            print("--- Fine run_resolved ---\n")
+        #finally:
+            #print("--- Fine run_resolved ---\n")
 
     def obj_dip(self,
                 simulator=Aer.get_backend('aer_simulator'),
@@ -587,7 +589,7 @@ class VQSD:
         return self.purity - overlap
 
     def obj_dip_resolved(self, angles, simulator=Aer.get_backend('aer_simulator'), repetitions=10):
-        print("ENTRO IN obj_dip_resolved")
+        #print("ENTRO IN obj_dip_resolved")
         if not self.purity:
             self.compute_purity()
         
@@ -618,9 +620,9 @@ class VQSD:
             self.pdip_test([j])
             
             # DEBUG
-            print("j =", j)
-            print("PDIP Test Circuit:")
-            print(self.dip_test_circ)
+            #print("j =", j)
+            #print("PDIP Test Circuit:")
+            #print(self.dip_test_circ)
             
             # run the circuit
             outcome = self.run(simulator, repetitions)
@@ -637,7 +639,7 @@ class VQSD:
             overlap = self.state_overlap_postprocessing(toprocess)
             
             # DEBUG
-            print("Overlap = ", overlap)
+            #print("Overlap = ", overlap)
             
             # divide by the probability of getting the all zero outcome
             prob = len(np.where(mask == True)) / len(mask)
@@ -645,20 +647,19 @@ class VQSD:
             prob = counts[0] / repetitions if 0 in counts.keys() else 0.0
             
             assert 0 <= prob <= 1
-            print("prob =", prob)
+            #print("prob =", prob)
             
             
             overlap *= prob
-            print("Scaled overlap =", overlap)
-            print()
+            #print("Scaled overlap =", overlap)
+            #print()
             ov += overlap
 
         return ov / self._num_qubits
     
+    
     def overlap_pdip_resolved(self, angles, simulator=Aer.get_backend('aer_simulator'), repetitions=1000):
-        print("\n--- Inizio overlap_pdip_resolved ---")
-        print(f"Angoli ricevuti: {angles}")
-        print(f"Numero di ripetizioni: {repetitions}")
+        #print("\n--- Inizio overlap_pdip_resolved ---")
         
         if not self.purity:
             self.compute_purity()
@@ -666,46 +667,61 @@ class VQSD:
         total_overlap = 0.0
         
         for j in range(self._num_qubits):
-            print(f"\nProcessing qubit {j}")
+            ##print(f"\nProcessing qubit {j}")
             self.clear_dip_test_circ()
             self.pdip_test([j])
             result = self.run_resolved(angles, simulator, repetitions)
+            
             if result is None:
-                print(f"Impossibile calcolare l'overlap per j={j}")
+                ##print(f"Impossibile calcolare l'overlap per j={j}")
                 continue
             
-            counts = result.get_counts()
-            print(f"Conteggi per qubit {j}: {counts}")
+            try:
+                memory = result.get_memory()
+            except QiskitError:
+                ##print("get_memory() non disponibile, usando get_counts()")
+                counts = result.get_counts()
+                memory = []
+                for bitstring, count in counts.items():
+                    memory.extend([bitstring] * count)
             
-            dipcounts = {k.split()[0]: v for k, v in counts.items()}
-            pdipcount = {k.split()[1]: v for k, v in counts.items() if len(k.split()) > 1}
+            # Separa i risultati DIP e PDIP
+            dipcounts = {}
+            pdipcount = {}
+            for shot in memory:
+                dip_result = shot[:self._num_qubits]
+                pdip_result = shot[self._num_qubits:]
+                dipcounts[dip_result] = dipcounts.get(dip_result, 0) + 1
+                pdipcount[pdip_result] = pdipcount.get(pdip_result, 0) + 1
             
-            print(f"DIP counts: {dipcounts}")
-            print(f"PDIP counts: {pdipcount}")
+            ##print(f"DIP counts: {dipcounts}")
+            ##print(f"PDIP counts: {pdipcount}")
 
-            mask = self._get_mask_for_all_zero_outcome(dipcounts)
-            toprocess = [pdipcount[k] for k in pdipcount.keys() if mask[k]]
+            # Crea la maschera per i risultati all-zero DIP
+            all_zero_dip = '0' * self._num_qubits
+            mask = [result[:self._num_qubits] == all_zero_dip for result in memory]
             
-            print(f"Mask: {mask}")
-            print(f"To process: {toprocess}")
+            # Filtra i risultati PDIP basandosi sulla maschera
+            toprocess = [int(shot[self._num_qubits:]) for shot, m in zip(memory, mask) if m]
             
             if not toprocess:
-                print(f"Nessun dato da processare per j={j}")
+                ##print(f"Nessun dato da processare per j={j}")
                 continue
             
             overlap = self.state_overlap_postprocessing(np.array(toprocess))
             
-            prob = dipcounts.get('0' * self._num_qubits, 0) / repetitions            
+            prob = dipcounts.get(all_zero_dip, 0) / repetitions            
             assert 0 <= prob <= 1, f"Probabilità non valida: {prob}"
-            
+            ##print(f"La prob vale {prob}")
+
             scaled_overlap = overlap * prob
-            print(f"j={j}, prob={prob}, overlap={overlap}, scaled_overlap={scaled_overlap}")
+            ##print(f"j={j}, prob={prob}, overlap={overlap}, scaled_overlap={scaled_overlap}")
             
             total_overlap += scaled_overlap
         
         average_overlap = total_overlap / self._num_qubits
-        print(f"Overlap medio calcolato: {average_overlap}")
-        print("--- Fine overlap_pdip_resolved ---\n")
+        ##print(f"Overlap medio calcolato: {average_overlap}")
+        ##print("--- Fine overlap_pdip_resolved ---\n")
         return average_overlap
 
     def obj_pdip(self,
@@ -717,121 +733,123 @@ class VQSD:
         # make sure the purity is computed
         if not self.purity:
             self.compute_purity()
-
-        return self.purity - self.overlap_pdip(simulator, repetitions)
+        a = self.overlap_pdip(simulator, repetitions)
+        print("Purezza: ",self.purity, " - ", a )
+        return self.purity - a
     
     def obj_pdip_resolved(self, angles, simulator=Aer.get_backend('aer_simulator'), repetitions=1000):
-        print("\n--- Inizio obj_pdip_resolved ---")
-        print(f"Angoli ricevuti: {angles}")
-        print(f"Numero di ripetizioni: {repetitions}")
+        ##print("\n--- Inizio obj_pdip_resolved ---")
+        ##print(f"Angoli ricevuti: {angles}")
+        ##print(f"Numero di ripetizioni: {repetitions}")
         
         if not self.purity:
             self.compute_purity()
         
         circuit = self.algorithm()
-        print(f"Numero di parametri nel circuito: {len(circuit.parameters)}")
-        print(f"Numero di angoli forniti: {len(angles)}")
+        ##print(f"Numero di parametri nel circuito: {len(circuit.parameters)}")
+        ##print(f"Numero di angoli forniti: {len(angles)}")
         
         if len(angles) != len(circuit.parameters):
             print("Attenzione: il numero di angoli non corrisponde al numero di parametri del circuito")
         
-        print(f"Purity calcolata: {self.purity}")
+        ##print(f"Purity calcolata: {self.purity}")
 
         overlap = self.overlap_pdip_resolved(angles, simulator, repetitions)
-        print(f"Overlap calcolato: {overlap}")
-        
+        ##print(f"Overlap calcolato: {overlap}")
+        print("-------------------------purezza", self.purity, "overlap ", overlap)
         obj = self.purity - overlap
-        print(f"PDIP Test obj = {obj}")
+        ##print(f"PDIP Test obj = {obj}")
         
-        print("--- Fine obj_pdip_resolved ---\n")
+        ##print("--- Fine obj_pdip_resolved ---\n")
         return obj
     
     
     def _get_mask_for_all_zero_outcome(self, outcome):
         mask = []
-        all_zeros = '0' * 10
-        print(f"Cercando stati che iniziano con: {all_zeros}")
+        all_zeros = '0' * self._total_num_qubits
+        ##print(f"Cercando stati che iniziano con: {all_zeros}")
         
         for state, count in outcome.items():
-            print(f"Checking state: {state}, All zeros: {all_zeros}")
+            ###print(f"Checking state: {state}, All zeros: {all_zeros}")
             if state[:10] == all_zeros:
                 mask.extend([True] * count)
-                print(f"Trovato stato corrispondente: {state}")
+                ##print(f"Trovato stato corrispondente: {state}")
             else:
                 mask.extend([False] * count)
         
-        print(f"Generated mask: {mask}")
+        ##print(f"Generated mask: {mask}")
         return np.array(mask)
 
 
     def compute_purity(self):
-        print("\n--- Inizio compute_purity ---")
+        ##print("\n--- Inizio compute_purity ---")
         nShot = 10#Per prestazioni deboli
         
         state_prep_circ = self.state_prep_circ
-        print("Generazione del circuito di sovrapposizione dello stato...")
+        ##print("Generazione del circuito di sovrapposizione dello stato...")
         state_overlap_circ = self.state_overlap()
         
-        print(f"state_prep_circ - num_qubits: {state_prep_circ.num_qubits}, num_clbits: {state_prep_circ.num_clbits}")
-        print(f"state_overlap_circ - num_qubits: {state_overlap_circ.num_qubits}, num_clbits: {state_overlap_circ.num_clbits}")
+        ##print(f"state_prep_circ - num_qubits: {state_prep_circ.num_qubits}, num_clbits: {state_prep_circ.num_clbits}")
+        ##print(f"state_overlap_circ - num_qubits: {state_overlap_circ.num_qubits}, num_clbits: {state_overlap_circ.num_clbits}")
 
         # Creare un nuovo circuito con il numero massimo di qubit e bit classici
         max_qubits = max(state_prep_circ.num_qubits, state_overlap_circ.num_qubits)
         max_clbits = max(state_prep_circ.num_clbits, state_overlap_circ.num_clbits)
+        a = max(max_qubits,max_clbits)
         
-        print(f"Creazione di un nuovo circuito con {max_qubits} qubit e {max_clbits} bit classici...")
-        combined_circuit = QuantumCircuit(max_qubits, max_clbits)
+        ##print(f"Creazione di un nuovo circuito con {a} qubit e {a} bit classici...")
+        combined_circuit = QuantumCircuit(a, a)
         
-        print("Composizione del circuito di preparazione dello stato...")
+        ##print("Composizione del circuito di preparazione dello stato...")
         combined_circuit.compose(state_prep_circ, qubits=range(state_prep_circ.num_qubits), 
                                 clbits=range(state_prep_circ.num_clbits), inplace=True)
         
-        print("Composizione del circuito di sovrapposizione dello stato...")
+        ##print("Composizione del circuito di sovrapposizione dello stato...")
         combined_circuit.compose(state_overlap_circ, qubits=range(state_overlap_circ.num_qubits), 
                                 clbits=range(state_overlap_circ.num_clbits), inplace=True)
 
-        print("\nCircuito combinato creato.")
-        print(f"Numero di qubit nel circuito combinato: {combined_circuit.num_qubits}")
-        print(f"Numero di bit classici nel circuito combinato: {combined_circuit.num_clbits}")
-        print(f"Numero di gate nel circuito combinato: {len(combined_circuit)}")
-        #self.prep_state.printCircuit(combined_circuit)
-        print("\nPreparazione della simulazione...")
+        ##print("\nCircuito combinato creato.")
+        ##print(f"Numero di qubit nel circuito combinato: {combined_circuit.num_qubits}")
+        ##print(f"Numero di bit classici nel circuito combinato: {combined_circuit.num_clbits}")
+        ##print(f"Numero di gate nel circuito combinato: {len(combined_circuit)}")
+        #self.prep_state.##printCircuit(combined_circuit)
+        ##print("\nPreparazione della simulazione...")
         # Usa il simulatore Aer
         simulator = Aer.get_backend('aer_simulator')
         # Esegui il circuito sul simulatore
-        print("\nPronto a transpile")
+        ##print("\nPronto a transpile")
         transpiled_qc = transpile(combined_circuit, simulator)
-        print("\nPronto al job")
-        job = simulator.run(transpiled_qc, shots=nShot)
+        ##print("\nPronto al job")
+        job = simulator.run(transpiled_qc, shots=nShot, memory = True)
         
-        print("Esecuzione della simulazione...")
+        ##print("Esecuzione della simulazione...")
         try:
             outcome = job.result()
-            print("Simulazione completata.")
+            ##print("Simulazione completata.")
         except Exception as e:
-            print(f"Errore durante la simulazione: {str(e)}")
+            ##print(f"Errore durante la simulazione: {str(e)}")
             return None
 
-        print("\nElaborazione dei risultati...")
+        ##print("\nElaborazione dei risultati...")
         try:
             counts = outcome.get_counts(combined_circuit)
-            print(f"Numero di stati misurati: {len(counts)}")
+            ##print(f"Numero di stati misurati: {len(counts)}")
         except Exception as e:
-            print(f"Errore nell'ottenere i conteggi: {str(e)}")
+            ##print(f"Errore nell'ottenere i conteggi: {str(e)}")
             return None
 
         all_zero_state = '0' * combined_circuit.num_qubits
         vals = np.array([[counts.get(state, 0) / 10 for state in ['0'*combined_circuit.num_qubits, '1'*combined_circuit.num_qubits]]])
-        print(f"Valore calcolato per vals: {vals}")
+        #print(f"Valore calcolato per vals: {vals}")
 
         try:
             self.purity = self.state_overlap_postprocessing(vals)
-            print(f"Purezza calcolata: {self.purity}")
+            #print(f"Purezza calcolata: {self.purity}")
         except Exception as e:
-            print(f"Errore nel post-processing: {str(e)}---------------------------------")
+            #print(f"Errore nel post-processing: {str(e)}---------------------------------")
             return None
 
-        print("\n--- Fine compute_purity ---")
+        #print("\n--- Fine compute_purity ---")
 
     
         
