@@ -6,11 +6,12 @@
 
 import time,re
 
-from VQSD_ALE import VQSD, symbol_list_for_product
+from VQSD_ALE import VQSD
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
 import numpy as np
 import cirq
+from qiskit.circuit import Parameter
 import os
 import sympy
 from qiskit.circuit.library import RXGate, RYGate, RZGate
@@ -21,7 +22,7 @@ import cirq_google
 # Constants
 # =============================================================================
 
-n = 10
+
 nreps = 10
 method = "COBYLA"
 q = 0.5
@@ -66,20 +67,23 @@ if __name__ == "__main__":
     #vqsd.compute_purity()
     
     # Add the ansatz
-    num_qubits = vqsd._num_qubits
+    num_qubits = int(vqsd._num_qubits) 
+    print("NUMERO DI QUBIT: ", num_qubits)
 
-# Create rotation gates with these parameters
-    vqsd.product_ansatz(symbol_list_for_product(num_qubits), RXGate)
+    num_layers = 1  # o il numero desiderato di layer
 
-    def get_param_resolver(num_qubits, num_layers):
-        """Returns a cirq.ParamResolver for the parameterized unitary."""
-        num_angles = 12 * num_qubits * num_layers
-        angs = np.pi * (2 * np.random.rand(num_angles) - 1)
-        return cirq.ParamResolver(
-            {str(ii) : angs[ii] for ii in range(num_angles)}
-        )
+    print(f"num_qubits: {num_qubits}")
+    print(f"num_layers: {num_layers}")
+    print(f"Calcolo: 12 * (num_qubits // 2) * num_layers = {12 * (num_qubits // 2) * num_layers}")
 
-    # Objective function for Dip Test
+    params = vqsd.min_to_vqsd(vqsd.symbol_list(num_qubits, num_layers),num_qubits)
+    shifted_params = params
+    #params = np.random.rand(num_layers, vqsd._num_qubits // 2, 12)
+
+    for l in range(num_layers):
+        vqsd.layer(params, shifted_params, copy=0)
+        vqsd.layer(params, shifted_params, copy=1)
+
     def objdip(angs):
         vqsd.clear_dip_test_circ()
         vqsd.dip_test()
@@ -88,46 +92,37 @@ if __name__ == "__main__":
         print("DIP Test obj =", val)
         return val
 
-    # Objective function for PDIP Test
     def objpdip(angs):
         vqsd.clear_dip_test_circ()
         val = vqsd.obj_pdip_resolved(angs, repetitions=nreps)
         OBJPDIPS.append(val)
-        print("PDIP Test obj =", val)
         return val
-    
-    # Does the PDIP and also appends the DIP
+
     def objpdip_compare(angs):
-        # Do the PDIP first
         vqsd.clear_dip_test_circ()
         pval = vqsd.obj_pdip_resolved(angs, repetitions=nreps)
         OBJPDIPS.append(pval)
         if pval is None:
             print("Impossibile calcolare l'obiettivo. Restituisco un valore grande.")
-            return 1e10  # o un altro valore grande
-        print("\nPDIP Test obj =", pval)
+            return 1e10
         
-        # Do the DIP Test next. Evaluate with many repetitions to get a
-        # good estimate of the cost here. We're not training with this,
-        # just evaluating the cost
         vqsd.clear_dip_test_circ()
         vqsd.dip_test()
         val = vqsd.obj_dip_resolved(angs, repetitions=10)
         OBJDIPS.append(val)
         print("DIP Test obj =", val)
         
-        # return the PDIP Test obj val
         return pval
     
     # Does the weighted sum of costs
     def qcost(angs):
-        print("PDIP cost: ")
+        #print("PDIP cost: ")
         # PDIP cost
         vqsd.clear_dip_test_circ()
         pdip = vqsd.obj_pdip_resolved(angs, repetitions=nreps)
         
         # DIP cost
-        print(pdip, "\nDIP cost: ")
+        print("\nDIP cost: ")
         vqsd.clear_dip_test_circ()
         vqsd.dip_test()
         dip = vqsd.obj_dip_resolved(angs, repetitions=nreps)
@@ -153,7 +148,7 @@ if __name__ == "__main__":
     # =========================================================================
     
     # Initial values
-    init = np.random.random(10) * 0.1  # angoli piccoli
+    init = np.random.rand(num_layers * (vqsd._num_qubits // 2) * 12)
     # Start the timer
     start = time.time()
     
@@ -179,7 +174,7 @@ if __name__ == "__main__":
     # =========================================================================
     
     plt.figure(figsize=(6, 7))
-    title = "EXACT GLOBAL EVAL {} {} Qubit Product State, {} Shots, {} Iterations, Runtime = {} min.".format(method, n, nreps, maxiter, round(wall, 2))
+    title = "EXACT GLOBAL EVAL {} {} Qubit Product State, {} Shots, {} Iterations, Runtime = {} min.".format(method, vqsd._num_qubits, nreps, maxiter, round(wall, 2))
     #plt.title(title)
     
     plt.plot(process(OBJPDIPS), "b-o", linewidth=2, label="$C(q=0.0)$ with $C(q=0.0)$ training")
@@ -200,13 +195,11 @@ if __name__ == "__main__":
 
     # Pulizia del titolo per essere un nome di file valido
     safe_title = re.sub(r'[^a-zA-Z0-9_\-]', '', title.replace(' ', '_'))
-
-    # Percorso di salvataggio
-    save_path = r'C:\Users\Ale\Desktop\uni\TirocinioPecilli\PURE_STATE\FILE_GENERATED'
+# Percorso di salvataggio
+    save_path = os.path.join(os.path.expanduser('~'), 'Documents', 'PURE_STATE_OUTPUT')
 
     # Assicurati che la directory esista
-    if not os.path.exists(save_path):
-        os.makedirs(save_path)
+    os.makedirs(save_path, exist_ok=True)
 
     # Salva il grafico in PDF
     pdf_filename = os.path.join(save_path, f"{safe_title}_{t}.pdf")

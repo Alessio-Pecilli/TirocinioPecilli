@@ -63,11 +63,10 @@ class VQSD:
         
         # Prepara il circuito di stato e salva il numero di qubit
         self.state_prep_circ = self.prep_state.PrepareONECircuit()
-        self._num_qubits = 10 #Lavoro sempre con 10 Qubit
+        self._num_qubits = int(self.state_prep_circ.num_qubits/2)
         
-        self._total_num_qubits = 2 * self._num_qubits
-        self.qubits = QuantumRegister(self._total_num_qubits, name='q')
-        self.qubits = QuantumRegister(20, name='q')
+        self._total_num_qubits = self._num_qubits * 2
+        self.qubits = QuantumRegister(self._total_num_qubits)
 
         # key for measurements and statistics
         self._measure_key = measure_key
@@ -77,6 +76,8 @@ class VQSD:
         
         self.unitary_circ = QuantumCircuit(self.qubits)
         self.dip_test_circ = QuantumCircuit(self.qubits)
+        #self.prep_state.printCircuit(self.unitary_circ)
+        #self.prep_state.printCircuit(self.dip_test_circ)
 
         # initialize the purity of the state
         self.purity = None
@@ -161,140 +162,64 @@ class VQSD:
         """Implements a single layer of the diagonalizing unitary.
 
         input:
-            params [type: list<list<float>>]
-                parameters for the first layer of gates.
-                len(params) must be n // 2 where n is the number of qubits
-                in the state and // indicates floor division.
+            params [type: numpy.ndarray]
+                parameters for the layer of gates.
+                shape should be (n // 2, 12) where n is the number of qubits
 
-                the format of params is as follows:
-
-                params = [rotations for gates in layer]
-
-                where the rotations for the gates in the layer have the form
-
-                rotations for gates in layer =
-                    [x1, y1, z1],
-                    [x2, y2, z2],
-                    [x3, y3, z3],
-                    [x4, y4, z4].
-
-                Note that each gate consists of 12 parameters. 3 parameters
-                for each rotation and 4 total rotations.
-
-                The general form for a gate, which acts on two qubits,
-                is shown below:
-
-                    ----------------------------------------------------------
-                    | --Rx(x1)--Ry(y1)--Rz(z1)--@--Rx(x3)--Ry(y3)--Rz(z3)--@ |
-                G = |                           |                          | |
-                    | --Rx(x2)--Ry(y2)--Rz(z2)--X--Rx(x4)--Ry(y4)--Rz(z4)--X |
-                    ----------------------------------------------------------
-
-            shifted_params [type: ]
-                TODO: figure this out
-                parameters for the second shifted layer of gates
-
-            copy [type: int (0 or 1)]
+            copy [type: int (0 or 1), default=0]
                 the copy of the state to apply the layer to
 
         modifies:
             self.unitary_circ
                 appends the layer of operations to self.unitary_circ
         """
-        # for brevity
         n = self._num_qubits
-
         if params.size != self.num_angles_required_for_layer():
             raise ValueError("incorrect number of parameters for layer")
 
-        # =====================================================================
-        # helper functions for layer
-        # =====================================================================
+        shift = n * copy
 
-        def gate(qubits, params):
-            """Helper function to append the two qubit gate
-            ("G" in the VQSD paper figure).
+        for ii in range(0, n - 1, 2):
+            qubits = [self.qubits[ii + shift], self.qubits[ii + 1 + shift]]
+            gate_params = params[ii // 2]
+            self._apply_gate(qubits, gate_params)
 
-            input:
-                qubits [type: list<Qubits>]
-                    qubits to be acted on. must have length 2.
-
-                params [type: list<list<angles>>]
-                    the parameters of the rotations in the gate.
-                    len(params) must be equal to 12: 4 arbitrary rotations x
-                    3 angles per arbitrary rotation.
-
-                    the format of params must be
-
-                    [[x1, y1, z1],
-                     [x2, y2, z2],
-                     [x3, y3, z3],
-                     [x4, y4, z4]].
-
-                    the general form of a gate, which acts on two qubits,
-                    is shown below:
-
-                    ----------------------------------------------------------
-                    | --Rx(x1)--Ry(y1)--Rz(z1)--@--Rx(x3)--Ry(y3)--Rz(z3)--@ |
-                G = |                           |                          | |
-                    | --Rx(x2)--Ry(y2)--Rz(z2)--X--Rx(x4)--Ry(y4)--Rz(z4)--X |
-                    ----------------------------------------------------------
-
-            modifies:
-                self.unitary_circ
-                    appends a gate acting on the qubits to the unitary circ.
-            """
-            # rotation on 'top' qubit
-            self.unitary_circ.append(
-                self._rot(qubits[0], params[0]),
-                )
-
-            # rotation on 'bottom' qubit
-            self.unitary_circ.append(
-                self._rot(qubits[1], params[1]),
-                )
-                
-
-            # cnot from 'top' to 'bottom' qubit
-            self.unitary_circ.cx(qubits[0], qubits[1])
-
-            # second rotation on 'top' qubit
-            self.unitary_circ.append(
-                self._rot(qubits[0], params[2]),
-                )
-
-            # second rotation on 'bottom' qubit
-            self.unitary_circ.append(
-                self._rot(qubits[1], params[3]),
-                )
-
-            # second cnot from 'top' to 'bottom' qubit
-            self.unitary_circ.cx(qubits[0], qubits[1])
-
-        # helper function for indexing loops
         stop = lambda n: n - 1 if n % 2 == 1 else n
 
-        # shift in qubit indexing for different copies
         shift = 2 * self._num_qubits * copy
 
-        # =====================================================================
-        # implement the layer
-        # =====================================================================
-
-        # TODO: speedup. combine two loops into one
-
-        # unshifted gates on adjacent qubit pairs
         for ii in range(0, stop(n), 2):
             iiq = ii + shift
-            gate(self.qubits[iiq : iiq + 2], params[ii // 2])
+            if iiq + 1 >= len(self.qubits):
+                continue
+            self._apply_gate(self.qubits[iiq : iiq + 2], params[ii // 2])
 
-        # shifted gates on adjacent qubits
         if n > 2:
             for ii in range(1, n, 2):
                 iiq = ii + shift
-                gate([self.qubits[iiq],
-                      self.qubits[(iiq + 1) % n + shift]],
-                     shifted_params[ii // 2])
+                if iiq + 1 >= len(self.qubits):
+                    continue
+                self._apply_gate([self.qubits[iiq], self.qubits[(iiq + 1) % (2 * n)]], shifted_params[ii // 2])
+        #self.prep_state.printCircuit(self.unitary_circ)
+
+    def _apply_gate(self, qubits, params):
+            """Helper function to append the two qubit gate."""
+            #print("len q", len(qubits), "len par: ", len(params))
+            q = qubits[0]
+            p = params[0]
+            self._rot(q,p)
+            q = qubits[1]
+            p = params[1]
+            self._rot(q,p)
+            self.unitary_circ.cx(qubits[0], qubits[1])
+            q = qubits[0]
+            p = params[2]
+            self._rot(q,p)
+            q = qubits[1]
+            p = params[3]
+            self._rot(q,p)
+            self.unitary_circ.cx(qubits[0], qubits[1])
+
 
     def _rot(self, qubit, params):
         """Helper function that returns an arbitrary rotation of the form
@@ -304,11 +229,9 @@ class VQSD:
         Note that order is reversed when put into the circuit. The circuit is:
         |qubit>---Rx(params[0])---Ry(params[1])---Rz(params[2])---
         """
-        rx = RXGate(params[0])  # Rotazione attorno all'asse X
-        ry = RYGate(params[1])  # Rotazione attorno all'asse Y
-        rz = RZGate(params[2]) 
-
-        yield (rx(qubit), ry(qubit), rz(qubit))
+        self.unitary_circ.rx(params[0], qubit)
+        self.unitary_circ.ry(params[1], qubit)
+        self.unitary_circ.rz(params[2], qubit)
 
     def dip_test(self, pdip=False):
         """Implements the dip test circuit.
@@ -324,13 +247,14 @@ class VQSD:
         # do the cnots
         for ii in range(self._num_qubits):
             self.dip_test_circ.cx( self.qubits[ii + self._num_qubits],self.qubits[ii])
-                
-
-        # do the measurements
+            
+        
         qubits_to_measure = self.qubits[:self._num_qubits]
         cr = ClassicalRegister(len(qubits_to_measure), 'cr')  # Aggiungi un nome al registro
         self.dip_test_circ.add_register(cr)  # Aggiungi questa linea
         self.dip_test_circ.measure(qubits_to_measure, cr)
+
+
         ##print(f"Misurazione aggiunta per i qubit: {qubits_to_measure}")
     
     def pdip_test(self, pdip_qubit_indices): 
@@ -360,6 +284,7 @@ class VQSD:
         pdip_qubits = [self.qubits[ii + self._num_qubits] for ii in pdip_qubit_indices]
         self.dip_test_circ.measure(pdip_qubits, cr_pdip[:len(pdip_qubit_indices)])
             
+            
 
     def state_overlap(self):
         """Returns the state overlap circuit as a QuantumCircuit."""
@@ -373,11 +298,11 @@ class VQSD:
         circuit = QuantumCircuit(self.qubits, cr)
 
         def bell_basis_gates(circuit, qubits, index, num_qubits):
-            circuit.cx(qubits[index], qubits[index + num_qubits])  # Gate CNOT
-            circuit.h(qubits[index])                                   # Gate Hadamard
+            circuit.cx(qubits[int(index)], qubits[int(index + num_qubits)])  # Gate CNOT
+            circuit.h(qubits[int(index)])                                   # Gate Hadamard
 
         # Add the bell basis gates to the circuit
-        for ii in range(self._num_qubits):
+        for ii in range(int(self._num_qubits)):
             bell_basis_gates(circuit, self.qubits, ii, self._num_qubits)
 
         # Determine qubits to measure
@@ -432,7 +357,7 @@ class VQSD:
 
         # number of qubits and number of repetitions of the circuit
     def state_overlap_postprocessing(self, output):
-        #print("\n--- Inizio state_overlap_postprocessing ---")
+        
         #print(f"Input ricevuto: {output}")
         
         # Converti l'input in un array numpy se non lo è già
@@ -456,6 +381,7 @@ class VQSD:
             nqubits += 1
             #print(f"Numero dispari di qubits. Aggiunta una colonna di zeri. Nuovo nqubits: {nqubits}")
         
+        print("GLI OUTPUT CON CUI LAVORO SONO: ", output)
         overlap = 0.0
 
         shift = nqubits // 2
@@ -467,7 +393,8 @@ class VQSD:
                 parity *= (-1)**(pair[0] and pair[1])
             overlap += parity
             #print(f"Parity: {parity}, Current overlap: {overlap}")
-
+        if(overlap < 0):
+            print("STATE PROCESSING, L'OVERLAP DEL PDIP CON CUI LAVORO VALE: ", overlap)
         final_overlap = overlap / nreps
         #print(f"Overlap finale: {final_overlap}")
         #print("--- Fine state_overlap_postprocessing ---\n")
@@ -480,7 +407,7 @@ class VQSD:
     # =========================================================================
 
     def algorithm(self):
-        ##print("ENTRO IN algorithm")
+        #print("ENTRO IN algorithm")
         """Returns the total algorithm of the VQSD circuit, which consists of
         state preperation, diagonalizing unitary, and dip test.
 
@@ -496,7 +423,7 @@ class VQSD:
         #dip_test_circ - num_qubits: 20, num_clbits: 19
         maxQ = max(self.state_prep_circ.num_qubits,self.unitary_circ.num_qubits,self.dip_test_circ.num_qubits)
         maxC = max(self.state_prep_circ.num_clbits,self.unitary_circ.num_clbits,self.dip_test_circ.num_clbits)
-        combined_circuit = QuantumCircuit(20, 20)
+        combined_circuit = QuantumCircuit(self._total_num_qubits)
 
         # Componi state_prep_circ
         combined_circuit.compose(self.state_prep_circ, qubits=range(self.state_prep_circ.num_qubits), clbits=range(self.state_prep_circ.num_clbits), inplace=True)
@@ -506,8 +433,8 @@ class VQSD:
 
         # Componi dip_test_circ
         combined_circuit.compose(self.dip_test_circ, qubits=range(self.dip_test_circ.num_qubits),clbits=range(self.dip_test_circ.num_clbits), inplace=True)
-        #self.prep_state.#printCircuit(combined_circuit)
-        ##print(f"Parametri nel circuito combinato: {combined_circuit.parameters}")
+        self.prep_state.printCircuit(combined_circuit)
+        #print(f"Parametri nel circuito combinato: {combined_circuit.parameters}")
         #print(f"combined_circuit - num_qubits: {combined_circuit.num_qubits}, num_clbits: {combined_circuit.num_clbits}")
         
         return combined_circuit
@@ -530,8 +457,8 @@ class VQSD:
         resolved_circuit = circuit.assign_parameters(param_dict)
         #print("QUESTO RISOLTO HA CLBITS: ",resolved_circuit.num_clbits)
         
-        if resolved_circuit.parameters:
-            print("Attenzione: alcuni parametri non sono stati risolti:", resolved_circuit.parameters)
+        #if resolved_circuit.parameters:
+            #print("Attenzione: alcuni parametri non sono stati risolti:", resolved_circuit.parameters)
         
         return resolved_circuit
 
@@ -572,33 +499,23 @@ class VQSD:
         #finally:
             #print("--- Fine run_resolved ---\n")
 
-    def obj_dip(self,
-                simulator=Aer.get_backend('aer_simulator'),
-                repetitions=10):
-        """Returns the objective function as computed by the DIP Test."""
-        # make sure the purity is computed
-        if not self.purity:
-            self.compute_purity()
-
-        # run the circuit
-        outcome = self.run(simulator, repetitions)
-        counts = outcome.get_counts()
-        
-        # compute the overlap and return the objective function
-        overlap = counts[0] / repetitions if 0 in counts.keys() else 0
-        return self.purity - overlap
-
-    def obj_dip_resolved(self, angles, simulator=Aer.get_backend('aer_simulator'), repetitions=10):
-        #print("ENTRO IN obj_dip_resolved")
+    def obj_dip_resolved(self, angles, simulator=Aer.get_backend('aer_simulator'), repetitions=1000):
         if not self.purity:
             self.compute_purity()
         
-        # run the circuit
-        outcome = self.run_resolved(angles, simulator, repetitions)
-
-        counts = outcome.get_counts()
-        # compute the overlap and return the objective
-        overlap = counts[0] / repetitions if 0 in counts.keys() else 0
+        circuit = self.resolved_algorithm(angles)
+        job = simulator.run(circuit, shots=repetitions)
+        result = job.result()
+        counts = result.get_counts()
+        
+        # Calcola la probabilità dello stato |0...0>
+        all_zero_state = '0' * self._num_qubits
+        overlap = counts.get(all_zero_state, 0) / repetitions
+        
+        print(f"DIP test counts: {counts}")
+        print(f"DIP test overlap: {overlap}")
+        if overlap < 0:
+            print("--------------------------------------------------------------------L'OVERLAP DEL DIP CON CUI LAVORO VALE: ", overlap)
         return self.purity - overlap
 
 
@@ -620,9 +537,9 @@ class VQSD:
             self.pdip_test([j])
             
             # DEBUG
-            #print("j =", j)
-            #print("PDIP Test Circuit:")
-            #print(self.dip_test_circ)
+            print("j =", j)
+            print("PDIP Test Circuit:")
+            print(self.dip_test_circ)
             
             # run the circuit
             outcome = self.run(simulator, repetitions)
@@ -634,7 +551,7 @@ class VQSD:
             # postselect on the all zeros outcome for the dip test measuremnt
             mask = self._get_mask_for_all_zero_outcome(dipcounts)
             toprocess = pdipcount[mask]
-            
+            print("TOPPROCESS  ",toprocess)
             # do the state overlap (destructive swap test) postprocessing
             overlap = self.state_overlap_postprocessing(toprocess)
             
@@ -660,7 +577,7 @@ class VQSD:
     
     def overlap_pdip_resolved(self, angles, simulator=Aer.get_backend('aer_simulator'), repetitions=1000):
         #print("\n--- Inizio overlap_pdip_resolved ---")
-        
+        print("MI stai passando un numero di angoli corrispondenti a: ", len(angles))
         if not self.purity:
             self.compute_purity()
         
@@ -707,11 +624,16 @@ class VQSD:
             if not toprocess:
                 ##print(f"Nessun dato da processare per j={j}")
                 continue
+            print("Top process:" ,toprocess)
             
             overlap = self.state_overlap_postprocessing(np.array(toprocess))
+            print("CHiamo state overlap post quando lavoro in pdip res")
+            if overlap < 0:
+                print("L'OVERLAP DEL PDIP CON CUI LAVORO VALE: ", overlap)
             
             prob = dipcounts.get(all_zero_dip, 0) / repetitions            
             assert 0 <= prob <= 1, f"Probabilità non valida: {prob}"
+            #print("prob vale: ", prob)
             ##print(f"La prob vale {prob}")
 
             scaled_overlap = overlap * prob
@@ -734,7 +656,7 @@ class VQSD:
         if not self.purity:
             self.compute_purity()
         a = self.overlap_pdip(simulator, repetitions)
-        print("Purezza: ",self.purity, " - ", a )
+        #print("Purezza: ",self.purity, " meno ", a )
         return self.purity - a
     
     def obj_pdip_resolved(self, angles, simulator=Aer.get_backend('aer_simulator'), repetitions=1000):
@@ -751,12 +673,13 @@ class VQSD:
         
         if len(angles) != len(circuit.parameters):
             print("Attenzione: il numero di angoli non corrisponde al numero di parametri del circuito")
+            print("len param ", len(circuit.parameters), " len angles ", len(angles))
         
         ##print(f"Purity calcolata: {self.purity}")
 
         overlap = self.overlap_pdip_resolved(angles, simulator, repetitions)
         ##print(f"Overlap calcolato: {overlap}")
-        print("-------------------------purezza", self.purity, "overlap ", overlap)
+        #print("-------------------------purezza", self.purity, "overlap: ", overlap)
         obj = self.purity - overlap
         ##print(f"PDIP Test obj = {obj}")
         
@@ -844,6 +767,7 @@ class VQSD:
 
         try:
             self.purity = self.state_overlap_postprocessing(vals)
+            print("CHiamo state overlap post quando lavoro con la purity")
             #print(f"Purezza calcolata: {self.purity}")
         except Exception as e:
             #print(f"Errore nel post-processing: {str(e)}---------------------------------")
@@ -881,26 +805,29 @@ class VQSD:
         return self.algorithm().to_text_diagram()
 
 
-def min_to_vqsd(param_list, num_qubits=2):
-    """Helper function that converts a linear array of angles (used to call
-    the optimize function) into the format required by VQSD.layer.
-    """
-    # TODO: add this as a member function of VQSD class
-    # error check on input
-    assert len(param_list) % 6 == 0, "invalid number of parameters"
-    return param_list.reshape(num_qubits // 2, 4, 3)
+    def min_to_vqsd(self, param_list, num_qubits):
+        # Verifica il numero totale di elementi
+        assert len(param_list) % 6 == 0, "invalid number of parameters"
+        return param_list.reshape(num_qubits // 2, 4, 3)
 
-def vqsd_to_min(param_array):
-    """Helper function that converts the array of angles in the format
-    required by VQSD.layer into a linear array of angles (used to call the
-    optimize function).
-    """
-    # TODO: add this as a member function of VQSD class
-    return param_array.flatten()
+    def vqsd_to_min(param_array):
+        """Helper function that converts the array of angles in the format
+        required by VQSD.layer into a linear array of angles (used to call the
+        optimize function).
+        """
+        # TODO: add this as a member function of VQSD class
+        return param_array.flatten()
 
-def symbol_list_for_product(num_qubits):
-    """Returns a list of qiskit.circuit.Parameter's for a product state ansatz."""
-    return np.array(
-        [Parameter(f'theta_{ii}') for ii in range(num_qubits)]
-    )
+    def symbol_list_for_product(num_qubits):
+        """Returns a list of qiskit.circuit.Parameter's for a product state ansatz."""
+        return np.array(
+            [Parameter(f'theta_{ii}') for ii in range(num_qubits)]
+        )
+    
+    def symbol_list(self,num_qubits, num_layers):
+        """Returns a list of qiskit.circuit.Parameter's for a product state ansatz."""
+        num_qubits = int(num_qubits) 
+        return np.array(
+            [Parameter(f'theta_{ii}') for ii in range(12 * (num_qubits // 2) * num_layers)]
+        )
 
