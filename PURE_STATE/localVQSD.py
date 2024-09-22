@@ -59,7 +59,7 @@ if __name__ == "__main__":
     vqsd = VQSD()
     
     # Get preparation angles
-    #sprep_angles = np.random.rand(n)
+    sprep_angles = np.random.rand(vqsd._num_qubits)
     
     # Add the state prep circuit and compute the purity
     #Inizializzo con l'img, per noi gli angles sono le ampiezze dello stateVector
@@ -68,13 +68,13 @@ if __name__ == "__main__":
     
     # Add the ansatz
     num_qubits = int(vqsd._num_qubits) 
-    print("NUMERO DI QUBIT: ", num_qubits)
+    #print("NUMERO DI QUBIT: ", num_qubits)
 
     num_layers = 1  # o il numero desiderato di layer
 
-    print(f"num_qubits: {num_qubits}")
-    print(f"num_layers: {num_layers}")
-    print(f"Calcolo: 12 * (num_qubits // 2) * num_layers = {12 * (num_qubits // 2) * num_layers}")
+    #print(f"num_qubits: {num_qubits}")
+    #print(f"num_layers: {num_layers}")
+    #print(f"Calcolo: 12 * (num_qubits // 2) * num_layers = {12 * (num_qubits // 2) * num_layers}")
 
     params = vqsd.min_to_vqsd(vqsd.symbol_list(num_qubits, num_layers),num_qubits)
     shifted_params = params
@@ -96,9 +96,11 @@ if __name__ == "__main__":
         vqsd.clear_dip_test_circ()
         val = vqsd.obj_pdip_resolved(angs, repetitions=nreps)
         OBJPDIPS.append(val)
+        print("PDIP Test obj =", val)
         return val
 
     def objpdip_compare(angs):
+        print("CCCCCCCCCCCCCCCCCCCCCCCCCCCCC")
         vqsd.clear_dip_test_circ()
         pval = vqsd.obj_pdip_resolved(angs, repetitions=nreps)
         OBJPDIPS.append(pval)
@@ -163,6 +165,7 @@ if __name__ == "__main__":
     
     print("PDIP angles:", [x % 2 for x in out["x"]])
     print("DIP angles:", [x % 2 for x in glob["x"]])
+    print("Actual angles:", sprep_angles)
     #print("Actual angles:", sprep_angles)
     
     # Print the runtime
