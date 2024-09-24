@@ -412,27 +412,44 @@ class VQSD:
         return combined_circuit
 
     def resolved_algorithm(self, angles):
-        ##print("ENTRO IN resolved_algorithm")
+        print("ENTRO IN resolved_algorithm")
         circuit = self.algorithm()
         
-        num_params = 12 * self._num_qubits
+        num_params = 6 * self._num_qubits
+        print("QUI PARAM: invece gli angoli sono: ",num_params, " - ",len(angles))
 
         if angles is None:
             # Genera angoli casuali
             angles = 2 * np.random.rand(num_params)
+
+        # Verifica che il numero di angoli corrisponda al numero di parametri
+        if len(angles) != num_params:
+            raise ValueError(f"Expected {num_params} angles, but got {len(angles)}")
 
         # Crea una lista di Parameter objects
         params = [Parameter(f'θ_{i}') for i in range(num_params)]
         for i, param in enumerate(params):
             circuit.rx(param, i % self._num_qubits)
 
+        
         # Crea un dizionario che mappa i Parameter objects ai valori degli angoli
-        param_dict = dict(zip(params, angles))
+        param_dict = self.create_aer_parameters(params, angles)
+        #print("Parametri presenti nel circuito prima dell'assegnazione:", circuit.parameters)
+
 
         resolved_circuit = circuit.assign_parameters(param_dict)
-        print("FFFFFFFFFFFFFFFFFFFFFFFFF")
+        #print("Circuit after assigning parameters:", resolved_circuit)
+
         
         return resolved_circuit
+
+    def create_aer_parameters(self, params, angles):
+        # Crea un dizionario che mappa ogni parametro a un angolo corrispondente
+        param_dict = {param: float(angle) for param, angle in zip(params, angles)}
+        return param_dict
+
+
+    
     
     def examine_circuit(self,circuit):
         """
@@ -509,7 +526,7 @@ class VQSD:
         ##print(f"Numero di ripetizioni: {repetitions}")
         
         circuit = self.resolved_algorithm(angles)
-        
+        print(circuit.parameters)
         if circuit.parameters:
             ##print("Parametri non risolti:", circuit.parameters)
             param_binds = [{param: np.random.uniform(0, 2*np.pi) for param in circuit.parameters}]
@@ -517,16 +534,13 @@ class VQSD:
             job = simulator.run(circuit, shots=repetitions, parameter_binds=param_binds, memory = True)
         else:
             job = simulator.run(circuit, shots=repetitions, memory = True)
-        
+        print("result")
         try:
             result = job.result()
             ##print("Esecuzione del job completata con successo")
             return result
         except Exception as e:
-            ##print(f"Errore durante l'esecuzione del job: {str(e)}")
-            ##print("Circuito:")
-            ##print(circuit)
-            ##print("Parametri del circuito:", circuit.parameters)
+            print("Exception")
             return None
         #finally:
             ##print("--- Fine run_resolved ---\n")
@@ -536,28 +550,11 @@ class VQSD:
         if not self.purity:
             self.compute_purity()
 
-        
-        
-        circuit = self.resolved_algorithm(angles)
-        param_dict = dict(zip(circuit.parameters, angles))
+        outcome = self.run_resolved(angles, simulator, repetitions)
+        print("OUTCOME: ", outcome)
+        counts = outcome.histogram(key=self._measure_key)
 
-        # Trasforma il circuito per l'ottimizzazione
-        print("Parametri originali:", circuit.parameters)
-
-        transpiled_circuit = transpile(circuit, simulator)
-
-        job = simulator.run(transpiled_circuit, shots=repetitions, parameter_binds=[param_dict])
-        result = job.result()
-        counts = result.get_counts()
-        
-        # Calcola la probabilità dello stato |0...0>
-        all_zero_state = '0' * self._num_qubits
-        overlap = counts.get(all_zero_state, 0) / repetitions
-        
-        #print(f"DIP test counts: {counts}")
-        #print(f"DIP test overlap: {overlap}")
-        #if overlap < 0:
-        print("--------------------------------------------------------------------L'OVERLAP DEL DIP CON CUI LAVORO VALE: ", overlap)
+        overlap = counts[0] / repetitions if 0 in counts.keys() else 0
         return self.purity - overlap
 
 
