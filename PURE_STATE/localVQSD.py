@@ -6,7 +6,7 @@
 
 import time,re
 
-from VQSD_ALE import VQSD
+from VQSD import VQSD
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
 import numpy as np
@@ -70,19 +70,9 @@ if __name__ == "__main__":
     num_qubits = int(vqsd._num_qubits) 
     #print("NUMERO DI QUBIT: ", num_qubits)
 
-    num_layers = 1  # o il numero desiderato di layer
+    num_layers = 2  # o il numero desiderato di layer
 
-    #print(f"num_qubits: {num_qubits}")
-    #print(f"num_layers: {num_layers}")
-    #print(f"Calcolo: 12 * (num_qubits // 2) * num_layers = {12 * (num_qubits // 2) * num_layers}")
-
-    params = vqsd.min_to_vqsd(vqsd.symbol_list(num_qubits, num_layers),num_qubits)
-    shifted_params = params
-    #params = np.random.rand(num_layers, vqsd._num_qubits // 2, 12)
-
-    for l in range(num_layers):
-        vqsd.layer(params, shifted_params, copy=0)
-        vqsd.layer(params, shifted_params, copy=1)
+    
 
     def objdip(angs):
         vqsd.clear_dip_test_circ()

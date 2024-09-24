@@ -1,4 +1,4 @@
-from VQSD_ALE import VQSD
+from VQSD import VQSD
 import numpy as np
 from qiskit import QuantumCircuit
 from qiskit_aer import Aer

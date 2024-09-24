@@ -23,8 +23,6 @@ class StatePreparation:
     def num_qubits(self):
         return 10
 
-    
-
     def create_density_matrix(self, state_vectors):
         n = len(state_vectors[0].data)  # Dimensione del vettore di stato
         rho = np.zeros((n, n), dtype=np.complex128)  # Matrice densità inizialmente vuota
@@ -233,7 +231,7 @@ class StatePreparation:
         #self.printKet(vectorized_matrix, num_digits)
         #self.measure_statevector(quantum_state)
 
-        return self.statePrep(quantum_state)
+        return self.statePrepSingle(quantum_state)
 
 
     def ChooseRandomIMG(self):
@@ -265,10 +263,10 @@ class StatePreparation:
         risultato = self.FromFileToStateVector(file_path)
         print("Si lavora con uno stato PURO, lavoro con n_qubits: ", risultato.num_qubits)
         print("RISULTATO INIZIALE-------------")
+        
+        
+        
         #self.printCircuit(risultato)
-        
-        
-
         return risultato
     
     def printCircuit(self, circuit):
@@ -285,4 +283,8 @@ class StatePreparation:
         
         # Prepara il circuito di stato e salva il numero di qubit
 #state_prep_circ = prep_state.PrepareONECircuit()
+#_num_qubits = int(state_prep_circ.num_qubits)
+        
+#_total_num_qubits = _num_qubits * 2
+#print(_num_qubits, " ", _total_num_qubits)
 
