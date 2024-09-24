@@ -108,7 +108,7 @@ class Dip_Pdip:
         combined_circuit.compose(self.double, inplace=True)
         self.dip_test()
         combined_circuit.compose(self.dip_pdip_circ, inplace=True)
-        self.printCircuit(combined_circuit)
+        #self.printCircuit(combined_circuit)
         return combined_circuit
     
     def getFinalCircuitDS(self):
@@ -116,7 +116,7 @@ class Dip_Pdip:
         combined_circuit.compose(self.double, inplace=True)
         self.ds_test()
         combined_circuit.compose(self.dip_pdip_circ, inplace=True)
-        self.printCircuit(combined_circuit)
+        #self.printCircuit(combined_circuit)
         return combined_circuit
     
 
@@ -140,9 +140,9 @@ class Dip_Pdip:
         return self.purity - self.overlap_pdip(simulator, repetitions)
     
 
-    def obj_dip(self, simulator=Aer.get_backend('aer_simulator'), repetitions=1000):
+    def obj_dip(self, circuit, simulator=Aer.get_backend('aer_simulator'), repetitions=1000):
         
-        transpiled_circuit = transpile(self.getFinalCircuitDIP(), simulator)
+        transpiled_circuit = transpile(circuit, simulator)
         result = simulator.run(transpiled_circuit, shots=1000).result()
         # Ottieni i risultati
         
@@ -153,12 +153,12 @@ class Dip_Pdip:
         # Step 5: Calculate overlap, where '0'*num_qubits is the all-zeros state
         zero_state = '0' * self._num_qubits
         overlap = counts[zero_state] / repetitions if zero_state in counts else 0
-        print("Overlap: ", overlap)
+        #print("Overlap: ", overlap)
         return self.purity - overlap
     
-    def obj_ds(self, simulator=Aer.get_backend('aer_simulator'), repetitions=1000):
+    def obj_ds(self, circuit, simulator=Aer.get_backend('aer_simulator'), repetitions=1000):
         
-        transpiled_circuit = transpile(self.getFinalCircuitDS(), simulator)
+        transpiled_circuit = transpile(circuit, simulator)
         result = simulator.run(transpiled_circuit, shots=1000).result()
         # Ottieni i risultati
         
@@ -169,7 +169,7 @@ class Dip_Pdip:
         # Step 5: Calculate overlap, where '0'*num_qubits is the all-zeros state
         zero_state = '0' * self._num_qubits
         overlap = counts[zero_state] / repetitions if zero_state in counts else 0
-        print("Overlap: ", overlap)
+        #print("Overlap: ", overlap)
         return self.purity - overlap
     
     def _get_mask_for_all_zero_outcome(self, outcome):
@@ -202,6 +202,4 @@ class Dip_Pdip:
     def resolved_algorithm(self,angles):
         return
 
-dip = Dip_Pdip()
-print(dip.obj_dip())
-print(dip.obj_ds())
+#dip = Dip_Pdip()
