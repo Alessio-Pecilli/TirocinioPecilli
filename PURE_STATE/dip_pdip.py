@@ -74,18 +74,48 @@ class Dip_Pdip:
         ov = 0.0
         for j in range(self._num_qubits, self._num_qubits * 2):
             clone = self.dip_pdip_circ.copy()
-            list = []
+            list_values = []
+            list_index = []
             for h in range(j, self._num_qubits * 2):
                 clone.h(self.qubits[h])
-                list.append(self.qubits[h])
+                list_values.append(self.qubits[h])
+                list_index.append(h)
 
             for j in range (0, self._num_qubits):
-                list.append(self.qubits[j])
+                list_values.append(self.qubits[j])
+                list_index.append(j)
 
-            cr = ClassicalRegister(len(list), name=self._measure_key)
+            # add the measurements for the destructive swap test on the pdip qubits
+            list_pdip = []
+
+            for ii in range(self._num_qubits):
+                qubit_index = ii + self._num_qubits
+                
+                if qubit_index < len(self.qubits):
+                    qubit = self.qubits[qubit_index]
+                    
+                    if qubit not in list_values:
+                        list_pdip.append(qubit)
+
+            # edge case: no qubits in pdip set
+            if len(list_pdip) > 0:
+                cr = ClassicalRegister(len(list_pdip), name=self._pdip_key)
+                clone.add_register(cr)
+                clone.measure(list_pdip, cr)
+            
+            cr = ClassicalRegister(len(list_values), name=self._measure_key)
             clone.add_register(cr)
-            clone.measure(list, cr)
-            self.pdip_work(clone)
+            clone.measure(list_values, cr)
+            x = self.getFinalCircuitPDIP(clone)
+            #self.printCircuit(x)
+            #ov += self.pdip_work(x)
+            transpiled_circuit = transpile(clone, Aer.get_backend('aer_simulator'))
+            result = Aer.get_backend('aer_simulator').run(transpiled_circuit, shots=1000).result()
+            # Ottieni i risultati
+
+            print("counts:", result.data())
+            print()
+            print()
   
         return ov / self._num_qubits
 
@@ -119,6 +149,13 @@ class Dip_Pdip:
         #self.printCircuit(combined_circuit)
         return combined_circuit
     
+    def getFinalCircuitPDIP(self,clone):
+        combined_circuit = QuantumCircuit(self._num_qubits*2)
+        combined_circuit.compose(self.double, inplace=True)
+        combined_circuit.compose(clone, inplace=True)
+        #self.printCircuit(combined_circuit)
+        return combined_circuit
+    
 
 
     """ FUNZIONI PER I LAVORI"""
@@ -127,14 +164,83 @@ class Dip_Pdip:
         transpiled_circuit = transpile(clone, simulator)
         result = simulator.run(transpiled_circuit, shots=1000).result()
         # Ottieni i risultati
-        dipcounts = result.measurements[self._measure_key]
-        pdipcount = result.measurements[self._pdip_key]
+        print(result)
+        result_data = result.data(0)
+        pdip_measurements = result_data["memory"]  # Contiene le misure grezze
+        print(pdip_measurements)
+        dipcounts = result.get_counts(self._measure_key)
+        #pdipcount = result.get_counts(self._pdip_key)
+        print(dipcounts)
         
         mask = self._get_mask_for_all_zero_outcome(dipcounts)
         toprocess = pdipcount[mask]
 
+        overlap = self.state_overlap_postprocessing(toprocess)
+            
+            # DEBUG
+        print("Overlap = ", overlap)
+            
+            # divide by the probability of getting the all zero outcome
+        prob = len(np.where(mask == True)) / len(mask)
+        counts = result.histogram(key=self._measure_key)
+        prob = counts[0] / repetitions if 0 in counts.keys() else 0.0
+            
+        assert 0 <= prob <= 1
+        print("prob =", prob)
+            
+            
+        overlap *= prob
+        print("Scaled overlap =", overlap)
         
-        return
+        return overlap
+    
+    def state_overlap_postprocessing(self, output):
+        """Does the classical post-processing for the state overlap algorithm.
+        
+        Args:
+            output [type: np.array]
+                The output of the state overlap algorithm.
+                
+                The format of output should be as follows:
+                    vals.size = (number of circuit repetitions, 
+                                 number of qubits being measured)
+
+                    the ith column of vals is all the measurements on the
+                    ith qubit. The length of this column is the number
+                    of times the circuit has been run.
+                    
+        Returns:
+            Estimate of the state overlap as a float
+        """
+        # =====================================================================
+        # constants and error checking
+        # =====================================================================
+
+        # number of qubits and number of repetitions of the circuit
+        (nreps, nqubits) = output.shape
+
+        # check that the number of qubits is even
+        assert nqubits % 2 == 0, "Input is not a valid shape."
+
+        # initialize variable to hold the state overlap estimate
+        overlap = 0.0
+
+        # =====================================================================
+        # postprocessing
+        # =====================================================================
+
+        # loop over all the bitstrings produced by running the circuit
+        shift = nqubits // 2
+        for z in output:
+            parity = 1
+            pairs = [z[ii] and z[ii + shift] for ii in range(shift)]
+            # DEBUG
+            for pair in pairs:
+                parity *= (-1)**pair
+            overlap += parity
+            #overlap += (-1)**(all(pairs))
+
+        return overlap / nreps
     
     def obj_pdip(self, simulator=Aer.get_backend('aer_simulator'), repetitions=1000):
         return self.purity - self.overlap_pdip(simulator, repetitions)
@@ -202,4 +308,5 @@ class Dip_Pdip:
     def resolved_algorithm(self,angles):
         return
 
-#dip = Dip_Pdip()
+dip = Dip_Pdip()
+dip.pdip_test()
