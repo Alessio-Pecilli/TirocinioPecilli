@@ -21,7 +21,7 @@ class StatePreparation:
 
     @property
     def num_qubits(self):
-        return 10
+        return 8
 
     def create_density_matrix(self, state_vectors):
         n = len(state_vectors[0].data)  # Dimensione del vettore di stato
@@ -220,8 +220,8 @@ class StatePreparation:
         #print("ba: ",binary_array.shape)
         #print("vm:" ,vectorized_matrix.shape)
 
-        print(f"La somma dei quadrati degli elementi sulla diagonale principale, ed il risultato atteso del DIP TEST è: {sum_of_squares}")
-        print(f"[0][0] vale : {binary_array[0][0]}")
+        #print(f"La somma dei quadrati degli elementi sulla diagonale principale, ed il risultato atteso del DIP TEST è: {sum_of_squares}")
+        #print(f"[0][0] vale : {binary_array[0][0]}")
 
         num_qubits = int(np.log2(len(quantum_state)))
         num_digits = num_qubits if num_qubits > 0 else 1
@@ -243,7 +243,7 @@ class StatePreparation:
         return file_path
 
     def LoadVectorMultiplo(self):
-        print("Si lavora con uno stato MISTO")
+        #print("Si lavora con uno stato MISTO")
         n = self.num_img
         current_dir = os.path.dirname(os.path.realpath(__file__))
         risultati = []
@@ -261,8 +261,8 @@ class StatePreparation:
         file_path = os.path.join(current_dir, self.ChooseRandomIMG())
         # Eseguire FromFileToStateVector e salvare il risultato nella lista
         risultato = self.FromFileToStateVector(file_path)
-        print("Si lavora con uno stato PURO, lavoro con n_qubits: ", risultato.num_qubits)
-        print("RISULTATO INIZIALE-------------")
+        #print("Si lavora con uno stato PURO, lavoro con n_qubits: ", risultato.num_qubits)
+        #print("RISULTATO INIZIALE-------------")
         
         
         

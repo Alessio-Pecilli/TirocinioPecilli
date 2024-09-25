@@ -1,191 +1,121 @@
-"""Tests the local cost vs global cost in VQSD."""
+
 
 # =============================================================================
 # Imports
 # =============================================================================
 
-import time,re
-
-from scipy.optimize import minimize
-import matplotlib.pyplot as plt
-import numpy as np
 import cirq
-from qiskit.circuit import Parameter
-import os
-import sympy
-from qiskit.circuit.library import RXGate, RYGate, RZGate
-import cirq_google
-
+import numpy as np
+import matplotlib.pyplot as plt
+from PIL import Image
+import qiskit
 from dip_pdip import Dip_Pdip
+from prepState import StatePreparation
+import readMINST
+from qiskit.circuit import ParameterVector
+import random
+from qutip import Qobj, ket2dm
+from qiskit.quantum_info import Statevector
+import os
+from qiskit.circuit import Parameter
+import math
+from qiskit import QuantumRegister, transpile
+from qiskit.visualization import circuit_drawer
+import qiskit_aer
+from qiskit_aer import Aer
+from qiskit_aer import AerSimulator
+from qiskit import QuantumCircuit
+from qiskit.visualization import plot_histogram
 
+class Result:
 
-# =============================================================================
-# Constants
-# =============================================================================
-
-
-nreps = 2
-method = "COBYLA"
-q = 0.5
-
-#maxiter = 1000
-maxiter = 2
-
-# =============================================================================
-# Functions
-# =============================================================================
-
-def process(vals):
-    new = [vals[0]]
-    for ii in range(1, len(vals)):
-        if vals[ii] < new[-1]:
-            new.append(vals[ii])
-        else:
-            new.append(new[-1])
-    return new
-
-# =============================================================================
-# Main script
-# =============================================================================
-
-if __name__ == "__main__":    
-    # Arrays to store the cost values
-    OBJDIPS = []        # global cost trained with local cost
-    OBJPDIPS = []       # local cost trained with local cost
-    OBJGLOBALDIPS = []  # global cost trained with global cost
-    OBJQDIPS = []       # global cost trained with q cost
-    QOBJS = []          # weighted sum of local and global cost
-
-    # Get a VQSD instance
-    vqsd = Dip_Pdip()
+    def __init__(self,n):
+        # Get a VQSD instance
+        n = 4
+        batch = self.load_img(n)
+        self.c1(batch)
+        return
     
+    def evaluete_c1(self,purity,dip):
+        return purity - dip
+    
+    def load_img(self,n):
+        state_prep = StatePreparation(n)
+        batch = state_prep.LoadVectorMultiplo()
+        return batch
+    
+    def c1(self,batch):
+        #Per ora uso n_qubit e n_layer fissi
+        self._num_qubits = 8
+        self.num_layers = 1
+        x = self.get_param_resolver(self._num_qubits, self.num_layers)
+        params = self.min_to_vqsd(x,self._num_qubits, self.num_layers) 
+        print(self.dip(params,batch))
+        #self.load_purity(params,batch) - self.dip(params,batch)
 
-    def objdip(self):
-        val = vqsd.obj_dip(vqsd.getFinalCircuitDIP())
-        OBJGLOBALDIPS.append(val)
-        print("DIP Test obj =", val)
-        return val
+        #scelgo n immagini(1 a N)
+        #Sommo i count
+        #Passo il ris nei vari calcoli
+        return
+    
+    def dip(self,params,batch):
+        counts = []
+        for ii in range(len(batch)):
+            circuit = Dip_Pdip(params,batch[ii],1)
+            circ = circuit.getFinalCircuitDIP()
+            count = circuit.obj_dip_counts(circ,1)
+            counts.append(count)
+            #devo convertire list in counts forse
+            #<class 'qiskit.result.counts.Counts'> <class 'list'>
+        return self.overlap_from_count(counts,len(batch))
+    
+    def overlap_from_count(self,counts,repetitions):
+        zero_state = '0' * self._num_qubits
+        print(counts, repetitions)
+        overlap = counts[zero_state] / repetitions if zero_state in counts else 0
+        #print("Overlap: ", overlap)
+        return overlap
 
-    """def objpdip_compare(angs):
-        print("CCCCCCCCCCCCCCCCCCCCCCCCCCCCC")
-        vqsd.clear_dip_test_circ()
-        pval = vqsd.obj_pdip_resolved(angs, repetitions=nreps)
-        OBJPDIPS.append(pval)
-        if pval is None:
-            print("Impossibile calcolare l'obiettivo. Restituisco un valore grande.")
-            return 1e10
+    def load_purity(self,params,batch):
+        counts = []
+        for ii in range(len(batch)):
+            circuit = Dip_Pdip(params,batch[ii],1)
+            circ = circuit.purity()
+            count = circuit.obj_dip_counts(circ,1)
+            counts.append(count)
+            
+        return 
+    
+    def min_to_vqsd(self, param_list, num_qubits, num_layer):
+        # Verifica il numero totale di elementi
+        #assert len(param_list) % 6 == 0, "invalid number of parameters"
         
-        vqsd.clear_dip_test_circ()
-        vqsd.dip_test()
-        val = vqsd.obj_dip_resolved(angs, repetitions=10)
-        OBJDIPS.append(val)
-        print("DIP Test obj =", val)
+        param_values = np.array(list(param_list.values()))#ho tolto .values per una migliore visualizzazione
+        x = param_values.reshape(num_layer,2 ,num_qubits//2 ,12)
+        x_reshaped = x.reshape(num_layer, 2, num_qubits // 2, 4, 3)
+       # print(x_reshaped)
+        return x_reshaped
+
+    def get_param_resolver(self,num_qubits, num_layers):
+        """Returns a ParamResolver for the parameterized unitary."""
+        num_angles = 12 * num_qubits * num_layers
+        angs = np.pi * (2 * np.random.rand(num_angles) - 1)
+        params = ParameterVector('θ', num_angles)
+        #print(params)
+    
+        # Creiamo un dizionario che mappa i parametri ai loro valori
+        param_dict = dict(zip(params, angs))
         
-        return pval
+        return param_dict
     
-    # Does the weighted sum of costs
-    def qcost(angs):
-        #print("PDIP cost: ")
-        # PDIP cost
-        vqsd.clear_dip_test_circ()
-        pdip = vqsd.obj_pdip_resolved(angs, repetitions=nreps)
+    def printCircuit(self, circuit):
+        current_dir = os.path.dirname(os.path.realpath(__file__))        
+        # Salva il circuito come immagine
+        image_path = os.path.join(current_dir, 'PrepStatePassato.png')
+        circuit_drawer(circuit, output='mpl', filename=image_path)
         
-        # DIP cost
-        print("\nDIP cost: ")
-        vqsd.clear_dip_test_circ()
-        vqsd.dip_test()
-        dip = vqsd.obj_dip_resolved(angs, repetitions=nreps)
-        
-        # weighted sum
-        print(dip,"\nweighted sum: ")
-        obj = q * dip + (1 - q) * pdip
-        
-        QOBJS.append(obj)
-        print("QCOST OBJ =", obj)
-        
-        # DIP Cost with greater shots
-        print("DIP Cost with greater shots")
-        vqsd.clear_dip_test_circ()
-        vqsd.dip_test()
-        val = vqsd.obj_dip_resolved(angs, repetitions=10)
-        OBJQDIPS.append(val)
-        
-        return obj"""
+        # Apri automaticamente l'immagine
+        img = Image.open(image_path)
+        img.show()
     
-    # =========================================================================
-    # Do the optimization
-    # =========================================================================
-    
-    # Start the timer
-    start = time.time()
-    init = np.zeros(vqsd._num_qubits)
-    # Minimize using the local cost + evaluate the global cost at each iteration
-    out = minimize(objdip,init, method=method, options={"maxiter": maxiter})
-    
-    # Minimize using the global cost
-    glob = minimize(objdip,init, method=method, options={"maxiter": maxiter})
-    
-    # Minimize using the weighted cost
-    #weight = minimize(qcost,init,  method=method, options={"maxiter": maxiter})
-    
-    print("PDIP angles:", [x % 2 for x in out["x"]])
-    print("DIP angles:", [x % 2 for x in glob["x"]])
-    #print("Actual angles:", sprep_angles)
-    
-    # Print the runtime
-    wall = (time.time() - start) / 60
-    print("Runtime {} minutes".format(wall))
-    
-    # =========================================================================
-    # Do the plotting
-    # =========================================================================
-    
-    plt.figure(figsize=(6, 7))
-    title = "EXACT GLOBAL EVAL {} {} Qubit Product State, {} Shots, {} Iterations, Runtime = {} min.".format(method, vqsd._num_qubits, nreps, maxiter, round(wall, 2))
-    #plt.title(title)
-    
-    plt.plot(process(OBJPDIPS), "b-o", linewidth=2, label="$C(q=0.0)$ with $C(q=0.0)$ training")
-    plt.plot(process(OBJGLOBALDIPS), "g-o", linewidth=2, label="$C(q=1.0)$ with $C(q=1.0)$ training")
-    plt.plot(process(QOBJS), "r-o", linewidth=2, label="$C(q=0.5)$ with $C(q=0.5)$ training")
-    plt.plot(process(OBJDIPS), "-o", color="orange", linewidth=2, label="$C(q=1.0)$ with $C(q=0.0)$ training")
-    plt.plot(process(OBJQDIPS), "-o", color="purple", linewidth=2, label="$C(q=1.0)$ with $C(q=0.5)$ training")
-    
-    plt.grid()
-    plt.legend()
-    
-    plt.xlabel("Iteration", fontsize=15, fontweight="bold")
-    plt.ylabel("Cost", fontsize=15, fontweight="bold")
-    
-    
-    # Generazione di un timestamp per il nome del file
-    t = time.strftime('%Y-%m-%d_%H-%M-%S')
-
-    # Pulizia del titolo per essere un nome di file valido
-    safe_title = re.sub(r'[^a-zA-Z0-9_\-]', '', title.replace(' ', '_'))
-# Percorso di salvataggio
-    save_path = os.path.join(os.path.expanduser('~'), 'Documents', 'PURE_STATE_OUTPUT')
-
-    # Assicurati che la directory esista
-    os.makedirs(save_path, exist_ok=True)
-
-    # Salva il grafico in PDF
-    pdf_filename = os.path.join(save_path, f"{safe_title}_{t}.pdf")
-    plt.savefig(pdf_filename, format='pdf')
-
-    # Salva i dati in un file di testo
-    costs = [process(OBJPDIPS),
-            process(OBJDIPS),
-            process(OBJGLOBALDIPS),
-            process(QOBJS),
-            process(OBJQDIPS)]
-
-    # Pad the lengths
-    maxlen = max(len(a) for a in costs)
-    for a in costs:
-        while len(a) < maxlen:
-            a.append(a[-1])
-
-    data = np.array(costs)
-    txt_filename = os.path.join(save_path, f"{title}_{t}.txt")
-    np.savetxt(txt_filename, data.T)
-
+res = Result(4)

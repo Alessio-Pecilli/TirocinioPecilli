@@ -43,8 +43,19 @@ class LayerPreparation:
             self.layer(params[l][0], params[l][1],)
             #self.printCircuit(self.unitary_circ)
             #self.layer(params[l][0], params[l][1], copy=1)
-        #print(self.unitary_circ.parameters)
+        #self.printCircuit(self.unitary_circ)
         return
+    
+    def __init__(self,params,state_prep_circ,num_layers):
+
+        self._num_qubits = int(state_prep_circ.num_qubits)
+        self.state_prep_circ = state_prep_circ
+        self.qubits = QuantumRegister(self._num_qubits)
+        self.unitary_circ = QuantumCircuit(self.qubits)
+
+        for l in range(num_layers):
+            self.layer(params[l][0], params[l][1],)
+        return 
     
     def layer(self, params, shifted_params):
         """Implements a single layer of the diagonalizing unitary.
