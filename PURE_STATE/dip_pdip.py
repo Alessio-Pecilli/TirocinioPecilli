@@ -53,7 +53,7 @@ class Dip_Pdip:
         # initialize the circuits into logical components
         self._num_qubits = len(self.layer.qubits)
         self.qubits = QuantumRegister(self._num_qubits*2)
-        self.purity = 1#Per il momento sempre puro
+        self.purity = self.compute_purity(1)#Per il momento sempre puro
         return
     
     def ds_test(self):
@@ -81,6 +81,48 @@ class Dip_Pdip:
         cr = ClassicalRegister(len(qubits_to_measure), name=self._measure_key)
         self.dip_pdip_circ.add_register(cr)
         self.dip_pdip_circ.measure(qubits_to_measure, cr)
+
+    def compute_purity(self,repetitions,
+                       simulator=Aer.get_backend('aer_simulator'),
+                       ):
+        # Computes and returns the (approximate) purity of the state.
+        # get the circuit without the diagonalizing unitary
+        state_prep_circ = self.unitary.get_prepare()
+        state_prep_circ.compose(self.state_overlap(),inplace=True)
+        # DEBUG
+        #self.printCircuit(state_prep_circ)
+        #print("I'm computing the purity as per the circuit:")
+        transpiled_circuit = transpile(state_prep_circ, simulator)
+        vals = simulator.run(transpiled_circuit, shots=repetitions).result().get_counts(transpiled_circuit)
+        #print(vals)
+        #print("Fino qui tutto ok")
+        self.purity = self.state_overlap_postprocessing(vals,1,transpiled_circuit.num_qubits)   
+        return self.purity
+
+    def state_overlap(self):
+        """Returns the state overlap circuit as a QuantumCircuit."""
+        # Determine the number of qubits to measure
+        num_measure = self._num_qubits
+
+        # Create a new quantum circuit with the existing quantum register and the new classical register
+        circuit = QuantumCircuit(self.qubits)
+
+        def bell_basis_gates(circuit, qubits, index, num_qubits):
+            circuit.cx(qubits[int(index)], qubits[int(index + num_qubits)])  # Gate CNOT
+            circuit.h(qubits[int(index)])                                   # Gate Hadamard
+
+        # Add the bell basis gates to the circuit
+        for ii in range(int(self._num_qubits)):
+            bell_basis_gates(circuit, self.qubits, ii, self._num_qubits)
+
+        # Determine qubits to measure
+        qubits_to_measure = self.qubits[ : self._num_qubits] + \
+            self.qubits[2 * self._num_qubits : 3 * self._num_qubits]
+               
+        cr = ClassicalRegister(len(qubits_to_measure), name=self._measure_key)
+        circuit.add_register(cr)
+        circuit.measure(qubits_to_measure, cr)
+        return circuit
 
     def pdip_test(self):
         #self.clear_dip_pdip_circ()
@@ -127,7 +169,7 @@ class Dip_Pdip:
             clone.measure(list_values, cr)
             x = self.getFinalCircuitPDIP(clone)
             #self.printCircuit(x)
-            #ov += self.pdip_work(x)
+            ov += self.pdip_work(x)
             
             print()
             print()
@@ -151,13 +193,12 @@ class Dip_Pdip:
     def separate_p_z_measurements(self,result, circuit):
         # Ottieni i nomi e le dimensioni dei registri classici
         cregs = circuit.cregs
-        print(cregs)
-        z_size = next(creg.size for creg in cregs if creg.name == 'z')
+        #print(cregs)
+        z_size = next(creg.size for creg in cregs if creg.name == self._measure_key)
         try:
-            p_size = next(creg.size for creg in cregs if creg.name == 'p')
+            p_size = next(creg.size for creg in cregs if creg.name == self._pdip_key)
         except:
             p_size = 0
-        print(z_size)
         
         counts = result.get_counts(circuit)
         p_counts = Counter()
@@ -196,8 +237,8 @@ class Dip_Pdip:
         #self.printCircuit(combined_circuit)
         return combined_circuit
     
-    def purity(self):
-        return
+    def purity_calc(self):
+        return self.purity
 
 
     """ FUNZIONI PER I LAVORI"""
@@ -208,30 +249,32 @@ class Dip_Pdip:
             # Ottieni i risultati
 
         p_counts, z_counts = self.separate_p_z_measurements(result, transpiled_circuit)
-        
-        mask = self._get_mask_for_all_zero_outcome(p_counts)
-        toprocess = z_counts[mask]
+        print("p: ", len(p_counts), " z: ", len(z_counts))
+        if len(p_counts)> 1:
+            mask = self._get_mask_for_all_zero_outcome(p_counts)
+            toprocess = z_counts[mask]
 
-        overlap = self.state_overlap_postprocessing(toprocess)
+            overlap = self.state_overlap_postprocessing(toprocess)
             
             # DEBUG
-        print("Overlap = ", overlap)
+            print("Overlap = ", overlap)
             
             # divide by the probability of getting the all zero outcome
-        prob = len(np.where(mask == True)) / len(mask)
-        counts = result.histogram(key=self._measure_key)
-        prob = counts[0] / repetitions if 0 in counts.keys() else 0.0
-            
-        assert 0 <= prob <= 1
-        print("prob =", prob)
-            
-            
-        overlap *= prob
-        print("Scaled overlap =", overlap)
-        
+            prob = len(np.where(mask == True)) / len(mask)
+            counts = result.histogram(key=self._measure_key)
+            prob = counts[0] / repetitions if 0 in counts.keys() else 0.0
+                
+            assert 0 <= prob <= 1
+            print("prob =", prob)
+                
+                
+            overlap *= prob
+            print("Scaled overlap =", overlap)
+        else:
+            overlap = 0.0
         return overlap
     
-    def state_overlap_postprocessing(self, output):
+    def state_overlap_postprocessing(self, output, nreps, nqubits):
         """Does the classical post-processing for the state overlap algorithm.
         
         Args:
@@ -254,29 +297,30 @@ class Dip_Pdip:
         # =====================================================================
 
         # number of qubits and number of repetitions of the circuit
-        (nreps, nqubits) = output.shape
+        #(nreps, nqubits) = output.shape
 
         # check that the number of qubits is even
         assert nqubits % 2 == 0, "Input is not a valid shape."
-
         # initialize variable to hold the state overlap estimate
         overlap = 0.0
 
-        # =====================================================================
-        # postprocessing
-        # =====================================================================
-
         # loop over all the bitstrings produced by running the circuit
-        shift = nqubits // 2
+        shift = int(nqubits // 4)
         for z in output:
             parity = 1
+            #print(shift)
+            #for ii in range(shift):
+                #print(f"z: {ii}, z[{ii+shift}]: {z[ii]},{z[ii+shift]}")
             pairs = [z[ii] and z[ii + shift] for ii in range(shift)]
             # DEBUG
+            #print(pairs)
             for pair in pairs:
-                parity *= (-1)**pair
+                #print(pair)
+                parity *= (-1)**int(pair)
+
             overlap += parity
             #overlap += (-1)**(all(pairs))
-
+        #print("Overlap:",overlap)
         return overlap / nreps
     
     def obj_pdip(self, simulator=Aer.get_backend('aer_simulator'), repetitions=1000):
@@ -364,5 +408,8 @@ class Dip_Pdip:
     
     def resolved_algorithm(self,angles):
         return
+    
+    def get_binary(self):
+        return self.unitary.get_binary()
     
 

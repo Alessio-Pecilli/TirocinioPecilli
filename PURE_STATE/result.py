@@ -30,10 +30,11 @@ from qiskit.visualization import plot_histogram
 class Result:
 
     def __init__(self,n):
-        # Get a VQSD instance
-        n = 4
-        batch = self.load_img(n)
-        self.c1(batch)
+        
+        batchStates, batchBinary  = self.load_img(n)
+        #print(batchBinary)
+        self.c1(batchStates)
+        #self.c1_calc_tot(batchBinary)
         return
     
     def evaluete_c1(self,purity,dip):
@@ -41,50 +42,93 @@ class Result:
     
     def load_img(self,n):
         state_prep = StatePreparation(n)
-        batch = state_prep.LoadVectorMultiplo()
-        return batch
+        batchStates, batchBinary = state_prep.LoadVectorMultiplo()
+        return batchStates, batchBinary
     
-    def c1(self,batch):
+    def c1(self,batchStates):
         #Per ora uso n_qubit e n_layer fissi
         self._num_qubits = 8
         self.num_layers = 1
         x = self.get_param_resolver(self._num_qubits, self.num_layers)
         params = self.min_to_vqsd(x,self._num_qubits, self.num_layers) 
-        print(self.dip(params,batch))
-        #self.load_purity(params,batch) - self.dip(params,batch)
-
-        #scelgo n immagini(1 a N)
-        #Sommo i count
-        #Passo il ris nei vari calcoli
+        dip = self.dip(params,batchStates)
+        purity = self.load_purity(params,batchStates)
+        c1 = purity - dip
+        print("IN TOTALE: ", purity, " - ", dip, " = ", c1)
         return
     
-    def dip(self,params,batch):
-        counts = []
-        for ii in range(len(batch)):
-            circuit = Dip_Pdip(params,batch[ii],1)
-            circ = circuit.getFinalCircuitDIP()
-            count = circuit.obj_dip_counts(circ,1)
-            counts.append(count)
-            #devo convertire list in counts forse
-            #<class 'qiskit.result.counts.Counts'> <class 'list'>
-        return self.overlap_from_count(counts,len(batch))
+    def c1_calc_tot(self, batchBinary):
+        for ii in range(len(batchBinary)):
+            self.c1_calc(batchBinary[ii])
+        return
     
-    def overlap_from_count(self,counts,repetitions):
+    def c1_calc(self,arr):
+        p = self.calc_purity(arr)
+        d = self.calc_dip(arr)
+        print("Risultati atteso n:  = ",  p - d, " Purezza: ",p, " Dip: ",d)
+
+    def dip(self,params,batchStates):
+        
+        counts = {}
+        nrep = 1
+        for ii in range(len(batchStates)):
+            circuit = Dip_Pdip(params,batchStates[ii],1)
+            circ = circuit.getFinalCircuitDIP()
+            #circuit.compute_purity(1)
+            
+            count = circuit.obj_dip_counts(circ,nrep)
+            for state, value in count.items():
+                if state in counts:
+                    counts[state] += value  # Se lo stato esiste, somma i valori
+                else:
+                    counts[state] = value  # Se lo stato non esiste, crea una nuova chiave
+   
+        return self.overlap_from_count(counts,len(batchStates))
+    
+    def overlap_from_count(self, counts, repetitions):
         zero_state = '0' * self._num_qubits
-        print(counts, repetitions)
-        overlap = counts[zero_state] / repetitions if zero_state in counts else 0
-        #print("Overlap: ", overlap)
-        return overlap
+        zero_state_count = 0
+        
+        # Se counts non è una lista, lo mettiamo in una lista
+        if not isinstance(counts, list):
+            counts = [counts]
+        
+        for i, count_item in enumerate(counts):
+            #print(f"Esaminando elemento {i + 1}: {count_item}")
+            
+            if isinstance(count_item, dict):
+                # Se è già un dizionario, lo usiamo direttamente
+                count_dict = count_item
+            elif isinstance(count_item, str):
+                # Se è una stringa, proviamo a convertirla in un dizionario
+                try:
+                    count_dict = eval(count_item)
+                except:
+                    print(f"Impossibile convertire la stringa in dizionario: {count_item}")
+                    continue
+            elif isinstance(count_item, int):
+                # Se è un intero, lo trattiamo come il conteggio diretto dello zero_state
+                zero_state_count += count_item
+                continue
+            else:
+                print(f"Tipo di dato non supportato: {type(count_item)}")
+                continue
+            
+            if isinstance(count_dict, dict) and zero_state in count_dict:
+                #print(f"Trovato {zero_state} con valore: {count_dict[zero_state]}")
+                zero_state_count += count_dict[zero_state]
+
+        #print(f"Numero totale di occorrenze di {zero_state}: {zero_state_count}")
+        return zero_state_count / repetitions
+    
+    
 
     def load_purity(self,params,batch):
-        counts = []
+        ov = 0.0
         for ii in range(len(batch)):
             circuit = Dip_Pdip(params,batch[ii],1)
-            circ = circuit.purity()
-            count = circuit.obj_dip_counts(circ,1)
-            counts.append(count)
-            
-        return 
+            ov += circuit.purity_calc()         
+        return ov/len(batch)
     
     def min_to_vqsd(self, param_list, num_qubits, num_layer):
         # Verifica il numero totale di elementi
@@ -93,7 +137,7 @@ class Result:
         param_values = np.array(list(param_list.values()))#ho tolto .values per una migliore visualizzazione
         x = param_values.reshape(num_layer,2 ,num_qubits//2 ,12)
         x_reshaped = x.reshape(num_layer, 2, num_qubits // 2, 4, 3)
-       # print(x_reshaped)
+        #print(x_reshaped)
         return x_reshaped
 
     def get_param_resolver(self,num_qubits, num_layers):
@@ -117,5 +161,78 @@ class Result:
         # Apri automaticamente l'immagine
         img = Image.open(image_path)
         img.show()
+
+    def calc_purity(self,rho):
+        # Calcola rho^2
+        rho_squared = np.matmul(rho, rho)
+        rho_squared = np.atleast_2d(rho_squared) 
+        # Calcola la traccia di rho^2
+        trace = np.trace(rho_squared)
+        return trace
     
-res = Result(4)
+    def calc_dip(self,rho):
+        
+        return self.trace_Z_rho_squared(rho)
+    
+
+    def global_dephasing_channel(self,rho):
+        """
+    Implementa il canale quantistico Z che defasa nella base standard globale.
+    
+    :param rho: Matrice densità dell'stato quantistico
+    :return: Matrice densità dopo l'applicazione del canale di defasamento globale
+    """
+        return np.diag(np.diag(rho))
+    
+        
+
+    def local_dephasing_channel(self,rho, j, n_qubits):
+        """
+        Implementa il canale quantistico Z_j che defasa nella base standard locale sul qubit j.
+        
+        :param rho: Matrice densità dell'stato quantistico
+        :param j: Indice del qubit su cui applicare il defasamento locale (0-based)
+        :param n_qubits: Numero totale di qubit nel sistema
+        :return: Matrice densità dopo l'applicazione del canale di defasamento locale
+        """
+        dim = 2**n_qubits
+        Z_j = np.eye(dim, dtype=complex)
+        
+        for i in range(dim):
+            for k in range(dim):
+                if i != k and (i ^ k) & (1 << j):
+                    Z_j[i, k] = 0
+        
+        return np.matmul(Z_j, np.matmul(rho, Z_j.conj().T))
+
+    def trace_Z_rho_squared(self,rho, channel_type='global', j=None, n_qubits=None):
+        #print(rho)
+        #print("bb:" , type(rho))
+        #print("RHO TYPE: ", print(type(rho)))
+        
+        """
+        Calcola Tr(Z(ρ)²) per il canale di defasamento specificato.
+        
+        :param rho: Matrice densità dell'stato quantistico
+        :param channel_type: 'global' per Z, 'local' per Z_j
+        :param j: Indice del qubit per il defasamento locale (richiesto se channel_type='local')
+        :param n_qubits: Numero totale di qubit (richiesto se channel_type='local')
+        :return: Il valore di Tr(Z(ρ)²)
+        """
+        if channel_type == 'global':
+            Z_rho = self.global_dephasing_channel(rho)
+        elif channel_type == 'local':
+            if j is None or n_qubits is None:
+                raise ValueError("Per il canale locale, specificare j e n_qubits")
+            Z_rho = self.local_dephasing_channel(rho, j, n_qubits)
+        else:
+            raise ValueError("channel_type deve essere 'global' o 'local'")
+        #print("Vecchio:", type(Z_rho))
+        Z_rho_squared = np.matmul(Z_rho, Z_rho)
+        Z_rho_squared = np.atleast_2d(Z_rho_squared) 
+        #print("Nuovo:", type(Z_rho_squared))
+        #print(len(Z_rho_squared))
+        
+        return np.trace(Z_rho_squared)
+
+res = Result(50)

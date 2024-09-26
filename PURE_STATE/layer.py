@@ -22,10 +22,10 @@ from qiskit.visualization import plot_histogram
 class LayerPreparation:
 
     def __init__(self):
-        prep_state = StatePreparation(1)
+        self.prep_state = StatePreparation(1)
         
         # Prepara il circuito di stato e salva il numero di qubit
-        self.state_prep_circ = prep_state.PrepareONECircuit()
+        self.state_prep_circ = self.prep_state.PrepareONECircuit()
         self._num_qubits = int(self.state_prep_circ.num_qubits)
         
         self.qubits = QuantumRegister(self._num_qubits)
@@ -55,7 +55,7 @@ class LayerPreparation:
 
         for l in range(num_layers):
             self.layer(params[l][0], params[l][1],)
-        return 
+        return
     
     def layer(self, params, shifted_params):
         """Implements a single layer of the diagonalizing unitary.
@@ -185,19 +185,22 @@ class LayerPreparation:
         return combined_circuit
 
     def get_double(self):
-        #print("Unitary Circuit Parameters: ", self.unitary_circ.parameters)
-        #print("State Preparation Circuit Parameters: ", self.state_prep_circ.parameters)
 
         combined_circuit = QuantumCircuit(self._num_qubits)
         combined_circuit.compose(self.state_prep_circ,inplace=True)
         combined_circuit.compose(self.unitary_circ,inplace=True)
-        #self.printCircuit(combined_circuit)
         qc = QuantumCircuit(combined_circuit.num_qubits*2)
 
-        # Duplica il circuito combinato sui nuovi qubit
         qc.compose(combined_circuit, range(combined_circuit.num_qubits),inplace=True)
         qc.compose(combined_circuit, range(combined_circuit.num_qubits, combined_circuit.num_qubits * 2),inplace=True)
-    
-        # Stampa il circuito aggiornato
-        #self.printCircuit(qc)
         return qc
+    
+    def get_prepare(self):
+        circ = self.state_prep_circ
+        qc = QuantumCircuit(circ.num_qubits*2)
+        qc.compose(circ, range(circ.num_qubits),inplace=True)
+        return qc
+    
+    def get_binary(self):
+        self.printCircuit(self.mergePrepareUnitary())
+        return self.prep_state.getBinary()

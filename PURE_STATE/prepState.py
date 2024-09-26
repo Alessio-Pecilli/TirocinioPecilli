@@ -220,7 +220,7 @@ class StatePreparation:
         #print("ba: ",binary_array.shape)
         #print("vm:" ,vectorized_matrix.shape)
 
-        #print(f"La somma dei quadrati degli elementi sulla diagonale principale, ed il risultato atteso del DIP TEST è: {sum_of_squares}")
+        #print(f"Risultato atteso del DIP TEST è: {sum_of_squares}")
         #print(f"[0][0] vale : {binary_array[0][0]}")
 
         num_qubits = int(np.log2(len(quantum_state)))
@@ -231,7 +231,10 @@ class StatePreparation:
         #self.printKet(vectorized_matrix, num_digits)
         #self.measure_statevector(quantum_state)
 
-        return self.statePrepSingle(quantum_state)
+        return self.statePrepSingle(quantum_state), vectorized_matrix
+    
+    def getBinary(self):
+        return self.binary
 
 
     def ChooseRandomIMG(self):
@@ -246,14 +249,16 @@ class StatePreparation:
         #print("Si lavora con uno stato MISTO")
         n = self.num_img
         current_dir = os.path.dirname(os.path.realpath(__file__))
-        risultati = []
+        risultatiStateVector = []
+        risultatiBinary = []
         for _ in range(n):
             # Scegliere un file casuale
             file_path = os.path.join(current_dir, self.ChooseRandomIMG())
             # Eseguire FromFileToStateVector e salvare il risultato nella lista
-            risultato = self.FromFileToStateVector(file_path)
-            risultati.append(risultato)
-        return risultati
+            risultatoSV, risultatoB = self.FromFileToStateVector(file_path)
+            risultatiStateVector.append(risultatoSV)
+            risultatiBinary.append(risultatoB)
+        return risultatiStateVector, risultatiBinary
 
     def PrepareONECircuit(self):
         current_dir = os.path.dirname(os.path.realpath(__file__))
@@ -261,6 +266,7 @@ class StatePreparation:
         file_path = os.path.join(current_dir, self.ChooseRandomIMG())
         # Eseguire FromFileToStateVector e salvare il risultato nella lista
         risultato = self.FromFileToStateVector(file_path)
+        self.printCircuit(risultato)
         #print("Si lavora con uno stato PURO, lavoro con n_qubits: ", risultato.num_qubits)
         #print("RISULTATO INIZIALE-------------")
         
