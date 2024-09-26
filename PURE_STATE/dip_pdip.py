@@ -244,7 +244,7 @@ class Dip_Pdip:
 
     """ FUNZIONI PER I LAVORI"""
     
-    def pdip_work(self,clone,simulator=Aer.get_backend('aer_simulator'), repetitions=5):
+    def pdip_work(self,clone,simulator=Aer.get_backend('aer_simulator'), repetitions=3):
         transpiled_circuit = transpile(clone, simulator)
         result = Aer.get_backend('aer_simulator').run(transpiled_circuit, shots=repetitions).result()
             # Ottieni i risultati
@@ -252,17 +252,17 @@ class Dip_Pdip:
         p_counts, z_counts = self.separate_p_z_measurements(result, transpiled_circuit)
         print(self._measure_key, z_counts, self._pdip_key, p_counts)
         
+        #Per p_counts devo eseguire il dip...credo
+
+        print(self.overlap_from_count(p_counts,repetitions))
+
         mask = self._get_mask_for_all_zero_outcome(z_counts)
-        print("MASCHERA: ",mask)
-        #if len(p_counts)> 1:
+        print("mask: ",mask)
         keys = list(p_counts.keys())
 
         # Crea una lista di array numpy da ciascuna chiave binaria
-        p_counts = np.array([[int(bit) for bit in key] for key in keys])
-
-            # Verifica il risultato
-        print(p_counts)
-        toprocess = p_counts[mask]
+        outcome = np.array([[int(bit) for bit in key] for key in keys])
+        toprocess = outcome[mask]
 
         overlap = self.state_overlap_postprocessing(toprocess)
             
@@ -413,9 +413,6 @@ class Dip_Pdip:
         print(outcome)
         #print(len(outcome[1]))
         for meas in outcome:
-            #print("Tipo di dati di meas:", type(meas), "Contenuto:", meas)
-
-            #meas = np.array(meas, dtype=int)  # Se i tuoi dati sono "0" e "1"
             if not np.any(meas):
                 mask.append(True)
             else:
