@@ -133,7 +133,7 @@ class Dip_Pdip:
             self.dip_pdip_circ.cx(self.qubits[i1],self.qubits[ii])
 
         ov = 0.0
-        for j in range(self._num_qubits, self._num_qubits * 2):
+        for j in range(self._num_qubits, 1 + self._num_qubits * 2):
             clone = self.dip_pdip_circ.copy()
             list_values = []
             list_index = []
@@ -173,6 +173,7 @@ class Dip_Pdip:
             
             print()
             print()
+        #ov+= self.pdip_work(self.getFinalCircuitDIP())#devo fare un dip diverso
   
         return ov / self._num_qubits
 
@@ -243,36 +244,45 @@ class Dip_Pdip:
 
     """ FUNZIONI PER I LAVORI"""
     
-    def pdip_work(self,clone,simulator=Aer.get_backend('aer_simulator'), repetitions=1000):
+    def pdip_work(self,clone,simulator=Aer.get_backend('aer_simulator'), repetitions=5):
         transpiled_circuit = transpile(clone, simulator)
-        result = Aer.get_backend('aer_simulator').run(transpiled_circuit, shots=1000).result()
+        result = Aer.get_backend('aer_simulator').run(transpiled_circuit, shots=repetitions).result()
             # Ottieni i risultati
 
         p_counts, z_counts = self.separate_p_z_measurements(result, transpiled_circuit)
-        print("p: ", len(p_counts), " z: ", len(z_counts))
-        if len(p_counts)> 1:
-            mask = self._get_mask_for_all_zero_outcome(p_counts)
-            toprocess = z_counts[mask]
+        print(self._measure_key, z_counts, self._pdip_key, p_counts)
+        
+        mask = self._get_mask_for_all_zero_outcome(z_counts)
+        print("MASCHERA: ",mask)
+        #if len(p_counts)> 1:
+        keys = list(p_counts.keys())
 
-            overlap = self.state_overlap_postprocessing(toprocess)
+        # Crea una lista di array numpy da ciascuna chiave binaria
+        p_counts = np.array([[int(bit) for bit in key] for key in keys])
+
+            # Verifica il risultato
+        print(p_counts)
+        toprocess = p_counts[mask]
+
+        overlap = self.state_overlap_postprocessing(toprocess)
             
             # DEBUG
-            print("Overlap = ", overlap)
+        print("Overlap = ", overlap)
             
             # divide by the probability of getting the all zero outcome
-            prob = len(np.where(mask == True)) / len(mask)
-            counts = result.histogram(key=self._measure_key)
-            prob = counts[0] / repetitions if 0 in counts.keys() else 0.0
+        prob = len(np.where(mask == True)) / len(mask)
+        counts = result.histogram(key=self._measure_key)
+        prob = counts[0] / repetitions if 0 in counts.keys() else 0.0
                 
-            assert 0 <= prob <= 1
-            print("prob =", prob)
+        assert 0 <= prob <= 1
+        print("prob =", prob)
                 
                 
-            overlap *= prob
-            print("Scaled overlap =", overlap)
-        else:
-            overlap = 0.0
+        overlap *= prob
+        print("Scaled overlap =", overlap)
+        
         return overlap
+        return 0
     
     def state_overlap_postprocessing(self, output, nreps, nqubits):
         """Does the classical post-processing for the state overlap algorithm.
@@ -392,11 +402,20 @@ class Dip_Pdip:
         
 
         mask = []
-        print(outcome)
-        for meas in outcome:
-            print("Tipo di dati di meas:", type(meas), "Contenuto:", meas)
+        #print("lui si trova: ", outcome)
+        # Ottieni le chiavi dal Counter
+        keys = list(outcome.keys())
 
-            meas = np.array(meas, dtype=int)  # Se i tuoi dati sono "0" e "1"
+        # Crea una lista di array numpy da ciascuna chiave binaria
+        outcome = np.array([[int(bit) for bit in key] for key in keys])
+
+        # Verifica il risultato
+        print(outcome)
+        #print(len(outcome[1]))
+        for meas in outcome:
+            #print("Tipo di dati di meas:", type(meas), "Contenuto:", meas)
+
+            #meas = np.array(meas, dtype=int)  # Se i tuoi dati sono "0" e "1"
             if not np.any(meas):
                 mask.append(True)
             else:
