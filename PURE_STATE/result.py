@@ -32,13 +32,25 @@ class Result:
     def __init__(self,n):
         
         batchStates, batchBinary  = self.load_img(n)
+        self.params = self.get_params()
+        circuit = Dip_Pdip(self.params,batchStates[0],1)
+        #print(circuit.pdip_test())
         #print(batchBinary)
-        self.c1(batchStates)
+        #self.c1(batchStates)
         #self.c1_calc_tot(batchBinary)
+        
         return
     
     def evaluete_c1(self,purity,dip):
         return purity - dip
+    
+    def get_params(self):
+        #Per ora uso n_qubit e n_layer fissi
+        self._num_qubits = 8
+        self.num_layers = 1
+        x = self.get_param_resolver(self._num_qubits, self.num_layers)
+        params = self.min_to_vqsd(x,self._num_qubits, self.num_layers)
+        return params
     
     def load_img(self,n):
         state_prep = StatePreparation(n)
@@ -46,13 +58,9 @@ class Result:
         return batchStates, batchBinary
     
     def c1(self,batchStates):
-        #Per ora uso n_qubit e n_layer fissi
-        self._num_qubits = 8
-        self.num_layers = 1
-        x = self.get_param_resolver(self._num_qubits, self.num_layers)
-        params = self.min_to_vqsd(x,self._num_qubits, self.num_layers) 
-        dip = self.dip(params,batchStates)
-        purity = self.load_purity(params,batchStates)
+         
+        dip = self.dip(self.params,batchStates)
+        purity = self.load_purity(self.params,batchStates)
         c1 = purity - dip
         print("IN TOTALE: ", purity, " - ", dip, " = ", c1)
         return
@@ -235,4 +243,4 @@ class Result:
         
         return np.trace(Z_rho_squared)
 
-res = Result(50)
+res = Result(1)
