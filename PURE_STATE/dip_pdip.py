@@ -163,12 +163,14 @@ class Dip_Pdip:
                 cr = ClassicalRegister(len(list_pdip), name=self._pdip_key)
                 clone.add_register(cr)
                 clone.measure(list_pdip, cr)
+            else:
+                print("Inizialmente non metto niente")
             
             cr = ClassicalRegister(len(list_values), name=self._measure_key)
             clone.add_register(cr)
             clone.measure(list_values, cr)
             x = self.getFinalCircuitPDIP(clone)
-            #self.printCircuit(x)
+            self.printCircuit(x)
             ov += self.pdip_work(x)
             
             print()
@@ -256,12 +258,13 @@ class Dip_Pdip:
 
         print(self.overlap_from_count(p_counts,repetitions))
 
-        mask = self._get_mask_for_all_zero_outcome(z_counts)
-        print("mask: ",mask)
-        keys = list(p_counts.keys())
+        mask = self._get_mask_for_all_zero_outcome(p_counts)
+        print("Mask: ",mask)
+        keys = list(z_counts.keys())
 
         # Crea una lista di array numpy da ciascuna chiave binaria
         outcome = np.array([[int(bit) for bit in key] for key in keys])
+        print("Outcome: ", outcome)
         toprocess = outcome[mask]
 
         overlap = self.state_overlap_postprocessing(toprocess)
@@ -313,24 +316,24 @@ class Dip_Pdip:
         assert nqubits % 2 == 0, "Input is not a valid shape."
         # initialize variable to hold the state overlap estimate
         overlap = 0.0
-
+        print("Output ottenuto per la misurazione della purezza: ",output)
         # loop over all the bitstrings produced by running the circuit
         shift = int(nqubits // 4)
         for z in output:
             parity = 1
             #print(shift)
-            #for ii in range(shift):
-                #print(f"z: {ii}, z[{ii+shift}]: {z[ii]},{z[ii+shift]}")
+            for ii in range(shift):
+                print(f"z: [{ii}], z[{ii+shift}]: {z[ii]},{z[ii+shift]}")
             pairs = [z[ii] and z[ii + shift] for ii in range(shift)]
             # DEBUG
             #print(pairs)
             for pair in pairs:
-                #print(pair)
+                print(pair)
                 parity *= (-1)**int(pair)
 
             overlap += parity
             #overlap += (-1)**(all(pairs))
-        #print("Overlap:",overlap)
+        print("Purezza:",overlap)
         return overlap / nreps
     
     def obj_pdip(self, simulator=Aer.get_backend('aer_simulator'), repetitions=1000):
