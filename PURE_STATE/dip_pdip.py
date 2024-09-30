@@ -53,7 +53,8 @@ class Dip_Pdip:
         # initialize the circuits into logical components
         self._num_qubits = len(self.layer.qubits)
         self.qubits = QuantumRegister(self._num_qubits*2)
-        self.purity = self.compute_purity(1)#Per il momento sempre puro
+        self.purity = self.compute_purity(2)#Per il momento sempre puro
+        #self.purity = 1
         return
     
     def ds_test(self):
@@ -133,14 +134,16 @@ class Dip_Pdip:
             self.dip_pdip_circ.cx(self.qubits[i1],self.qubits[ii])
 
         ov = 0.0
-        for j in range(self._num_qubits, 1 + self._num_qubits * 2):
+        for j in range(self._num_qubits, self._num_qubits * 2):
             clone = self.dip_pdip_circ.copy()
             list_values = []
             list_index = []
-            for h in range(j, self._num_qubits * 2):
-                clone.h(self.qubits[h])
-                list_values.append(self.qubits[h])
-                list_index.append(h)
+
+            for h in range(self._num_qubits, self._num_qubits*2):
+                if(h != j):
+                    clone.h(self.qubits[h])
+                    list_values.append(self.qubits[h])
+                    list_index.append(h)
 
             for j in range (0, self._num_qubits):
                 list_values.append(self.qubits[j])
@@ -170,14 +173,14 @@ class Dip_Pdip:
             clone.add_register(cr)
             clone.measure(list_values, cr)
             x = self.getFinalCircuitPDIP(clone)
-            self.printCircuit(x)
+            #self.printCircuit(x)
             ov += self.pdip_work(x)
             
-            print()
-            print()
+            #print()
+            #print()
         #ov+= self.pdip_work(self.getFinalCircuitDIP())#devo fare un dip diverso
   
-        return ov / self._num_qubits
+        return ov / (self._num_qubits/2)
 
     def clear_dip_pdip_circ(self):
         """Sets the dip test circuit to be a new, empty circuit."""
@@ -246,47 +249,51 @@ class Dip_Pdip:
 
     """ FUNZIONI PER I LAVORI"""
     
-    def pdip_work(self,clone,simulator=Aer.get_backend('aer_simulator'), repetitions=3):
+    def pdip_work(self,clone,simulator=Aer.get_backend('aer_simulator'), repetitions=5):
         transpiled_circuit = transpile(clone, simulator)
         result = Aer.get_backend('aer_simulator').run(transpiled_circuit, shots=repetitions).result()
             # Ottieni i risultati
 
         p_counts, z_counts = self.separate_p_z_measurements(result, transpiled_circuit)
-        print(self._measure_key, z_counts, self._pdip_key, p_counts)
+        #print(self._measure_key, " : ", z_counts, self._pdip_key," : ",  p_counts)
         
         #Per p_counts devo eseguire il dip...credo
 
-        print(self.overlap_from_count(p_counts,repetitions))
+        #print(self.overlap_from_count(p_counts,repetitions))
 
         mask = self._get_mask_for_all_zero_outcome(p_counts)
-        print("Mask: ",mask)
-        keys = list(z_counts.keys())
+        #print("Mask: ",mask)#Ok ma l'ordine dei risultati?
+        #keys = list(z_counts.keys())
 
         # Crea una lista di array numpy da ciascuna chiave binaria
-        outcome = np.array([[int(bit) for bit in key] for key in keys])
-        print("Outcome: ", outcome)
-        toprocess = outcome[mask]
-
-        overlap = self.state_overlap_postprocessing(toprocess)
+        #outcome = np.array([[int(bit) for bit in key] for key in keys])
+        #print("Outcome: ", z_counts)
+        result = Counter()
+        for binary_string, count in z_counts.items():
+            if all(bit == '1' for bit, mask_val in zip(binary_string[::-1], mask) if mask_val):
+                result[binary_string] = count
+        #toprocess = outcome[mask]
+        #print("FINE: ",result)
+        overlap = self.state_overlap_postprocessing(z_counts,1,16)
             
             # DEBUG
-        print("Overlap = ", overlap)
+        #print("Overlap = ", overlap)
             
             # divide by the probability of getting the all zero outcome
         prob = len(np.where(mask == True)) / len(mask)
-        counts = result.histogram(key=self._measure_key)
-        prob = counts[0] / repetitions if 0 in counts.keys() else 0.0
+        #print("Prob: ",prob)
+        #counts = result.histogram(key=self._measure_key)
+        prob = result[0] / repetitions if 0 in result.keys() else 0.0
                 
         assert 0 <= prob <= 1
-        print("prob =", prob)
+        #print("prob =", prob)
                 
                 
         overlap *= prob
-        print("Scaled overlap =", overlap)
+        #print("Scaled overlap =", overlap)
         
         return overlap
-        return 0
-    
+
     def state_overlap_postprocessing(self, output, nreps, nqubits):
         """Does the classical post-processing for the state overlap algorithm.
         
@@ -316,24 +323,24 @@ class Dip_Pdip:
         assert nqubits % 2 == 0, "Input is not a valid shape."
         # initialize variable to hold the state overlap estimate
         overlap = 0.0
-        print("Output ottenuto per la misurazione della purezza: ",output)
+        #print("Output ottenuto per la misurazione della purezza: ",output)
         # loop over all the bitstrings produced by running the circuit
         shift = int(nqubits // 4)
         for z in output:
             parity = 1
             #print(shift)
-            for ii in range(shift):
-                print(f"z: [{ii}], z[{ii+shift}]: {z[ii]},{z[ii+shift]}")
+            #for ii in range(shift):
+                #print(f"z: [{ii}], z[{ii+shift}]: {z[ii]},{z[ii+shift]}")
             pairs = [z[ii] and z[ii + shift] for ii in range(shift)]
             # DEBUG
             #print(pairs)
             for pair in pairs:
-                print(pair)
+                #print(pair)
                 parity *= (-1)**int(pair)
 
             overlap += parity
             #overlap += (-1)**(all(pairs))
-        print("Purezza:",overlap)
+        #print("Purezza: ",overlap)
         return overlap / nreps
     
     def obj_pdip(self, simulator=Aer.get_backend('aer_simulator'), repetitions=1000):
@@ -402,25 +409,10 @@ class Dip_Pdip:
                     ith qubit. The length of this column is the number
                     of times the circuit has been run.
         """
-        
+        result = [int(key) == 0 for key in outcome.elements()]
 
-        mask = []
-        #print("lui si trova: ", outcome)
-        # Ottieni le chiavi dal Counter
-        keys = list(outcome.keys())
-
-        # Crea una lista di array numpy da ciascuna chiave binaria
-        outcome = np.array([[int(bit) for bit in key] for key in keys])
-
-        # Verifica il risultato
-        print(outcome)
-        #print(len(outcome[1]))
-        for meas in outcome:
-            if not np.any(meas):
-                mask.append(True)
-            else:
-                mask.append(False)
-        return np.array(mask)
+        #print("res:",result)
+        return result
     
     def run_resolved(self, angles, simulator=Aer.get_backend('aer_simulator'), repetitions=1000):
         return

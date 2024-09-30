@@ -33,8 +33,8 @@ class Result:
         
         batchStates, batchBinary  = self.load_img(n)
         self.params = self.get_params()
-        circuit = Dip_Pdip(self.params,batchStates[0],1)
-        #print(circuit.pdip_test())
+        self.c1(batchStates)
+        self.c2(batchStates)
         #print(batchBinary)
         #self.c1(batchStates)
         #self.c1_calc_tot(batchBinary)
@@ -62,8 +62,16 @@ class Result:
         dip = self.dip(self.params,batchStates)
         purity = self.load_purity(self.params,batchStates)
         c1 = purity - dip
-        print("IN TOTALE: ", purity, " - ", dip, " = ", c1)
-        return
+        print("C1: ", purity, " - ", dip, " = ", c1)
+        return c1
+    
+    def c2(self,batchStates):
+         
+        pdip = self.pdip(self.params,batchStates)
+        purity = self.load_purity(self.params,batchStates)
+        c2 = purity - pdip
+        print("C2: ", purity, " - ", pdip, " = ", c2)
+        return c2
     
     def c1_calc_tot(self, batchBinary):
         for ii in range(len(batchBinary)):
@@ -92,6 +100,14 @@ class Result:
                     counts[state] = value  # Se lo stato non esiste, crea una nuova chiave
    
         return self.overlap_from_count(counts,len(batchStates))
+    
+    def pdip(self,params,batchStates):
+        
+        ov = 0.0
+        for ii in range(len(batchStates)):
+            circuit = Dip_Pdip(params,batchStates[ii],1)
+            ov += circuit.pdip_test()
+        return ov/len(batchStates)
     
     def overlap_from_count(self, counts, repetitions):
         zero_state = '0' * self._num_qubits
@@ -243,4 +259,5 @@ class Result:
         
         return np.trace(Z_rho_squared)
 
+#for j in range(0,10):
 res = Result(1)
