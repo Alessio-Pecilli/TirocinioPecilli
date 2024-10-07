@@ -26,6 +26,7 @@ from qiskit_aer import Aer
 from qiskit_aer import AerSimulator
 from qiskit import QuantumCircuit
 from qiskit.visualization import plot_histogram
+from scipy.optimize import minimize
 
 class Result:
 
@@ -33,8 +34,10 @@ class Result:
         
         batchStates, batchBinary  = self.load_img(n)
         self.params = self.get_params()
-        self.c1(batchStates)
-        self.c2(batchStates)
+        #self.work_for_one(self.params)
+        #self.c1(batchStates)
+        #self.c2(batchStates)
+        print(self.c1_optimization(batchStates))
         #print(batchBinary)
         #self.c1(batchStates)
         #self.c1_calc_tot(batchBinary)
@@ -43,6 +46,12 @@ class Result:
     
     def evaluete_c1(self,purity,dip):
         return purity - dip
+    
+    def work_for_one(self,params):#Prova a calcolarmi la purezza per uno stato
+        state, state_bin = self.load_img(1)
+        circ = Dip_Pdip(params,state[0],1)
+        a = circ.getFinalCircuitDS()
+        print("Purezza finale ottenuta:", 2*circ.obj_ds(a) -1)
     
     def get_params(self):
         #Per ora uso n_qubit e n_layer fissi
@@ -62,7 +71,7 @@ class Result:
         dip = self.dip(self.params,batchStates)
         purity = self.load_purity(self.params,batchStates)
         c1 = purity - dip
-        print("C1: ", purity, " - ", dip, " = ", c1)
+        #print("C1: ", purity, " - ", dip, " = ", c1)
         return c1
     
     def c2(self,batchStates):
@@ -151,7 +160,8 @@ class Result:
         ov = 0.0
         for ii in range(len(batch)):
             circuit = Dip_Pdip(params,batch[ii],1)
-            ov += circuit.purity_calc()         
+            ov += circuit.obj_ds(circuit.getFinalCircuitDS())    
+            #print("OV: ",ov)     
         return ov/len(batch)
     
     def min_to_vqsd(self, param_list, num_qubits, num_layer):
@@ -258,6 +268,52 @@ class Result:
         #print(len(Z_rho_squared))
         
         return np.trace(Z_rho_squared)
+
+        """OTTIMIZZAZIONE FUNZIONE DI COSTO"""
+    def c1_wrapper(self, parametri, batchStates):
+        params = parametri.reshape(self.params.shape)
+        dip = self.dip(params, batchStates)  # Passa i parametri corretti
+        purity = self.load_purity(params, batchStates)
+        c1 = purity - dip
+        #print("C1: ", purity, " - ", dip, " = ", c1)
+        return c1
+
+    def c1_optimization(self, batchStates):
+        # Appiattisci i parametri solo per la fase di ottimizzazione
+        flat_params = np.ravel(self.params)
+        
+        # Definisci i vincoli per i parametri: ciascun parametro deve essere tra 0 e 1
+        #bounds = [(0, 1) for _ in range(len(flat_params))]
+        
+        # Passa i parametri appiattiti a minimize con i vincoli
+        result = minimize(self.c1_wrapper, flat_params, args=(batchStates,), method="cobyla")       
+        # Puoi riconvertire result.x alla forma originale, se necessario
+        optimized_params = result.x.reshape(self.params.shape)
+        
+        return result, optimized_params
+    
+    def c2_wrapper(self, parametri, batchStates):
+        params = parametri.reshape(self.params.shape)
+        pdip = self.pdip(params, batchStates)  # Passa i parametri corretti
+        purity = self.load_purity(params, batchStates)
+        c2 = purity - pdip
+        #print("C1: ", purity, " - ", dip, " = ", c1)
+        return c2
+
+    def c2_optimization(self, batchStates):
+        # Appiattisci i parametri solo per la fase di ottimizzazione
+        flat_params = np.ravel(self.params)
+        
+        # Definisci i vincoli per i parametri: ciascun parametro deve essere tra 0 e 1
+        #bounds = [(0, 1) for _ in range(len(flat_params))]
+        
+        # Passa i parametri appiattiti a minimize con i vincoli
+        result = minimize(self.c2_wrapper, flat_params, args=(batchStates,), method="cobyla")
+        
+        # Puoi riconvertire result.x alla forma originale, se necessario
+        optimized_params = result.x.reshape(self.params.shape)
+        
+        return result, optimized_params
 
 #for j in range(0,10):
 res = Result(1)

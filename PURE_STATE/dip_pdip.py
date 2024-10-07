@@ -45,6 +45,7 @@ class Dip_Pdip:
         self.unitary = LayerPreparation(params,state_prep_circ,num_layers)
         self.layer = self.unitary.mergePrepareUnitary()
         self.double = self.unitary.get_double()
+        self.single = self.unitary.get_prepare()
         
         # key for measurements and statistics
         self._measure_key = "z"
@@ -230,7 +231,7 @@ class Dip_Pdip:
     
     def getFinalCircuitDS(self):
         combined_circuit = QuantumCircuit(self._num_qubits*2)
-        combined_circuit.compose(self.double, inplace=True)
+        #combined_circuit.compose(self.single, inplace=True)
         self.ds_test()
         combined_circuit.compose(self.dip_pdip_circ, inplace=True)
         #self.printCircuit(combined_circuit)
@@ -274,8 +275,8 @@ class Dip_Pdip:
                 result[binary_string] = count
         #toprocess = outcome[mask]
         #print("FINE: ",result)
-        overlap = self.state_overlap_postprocessing(z_counts,1,16)
-            
+        #overlap = self.state_overlap_postprocessing(z_counts,1,16)
+        overlap = self.MIO_state_overlap(z_counts,repetitions)   
             # DEBUG
         #print("Overlap = ", overlap)
             
@@ -377,21 +378,47 @@ class Dip_Pdip:
         #print("Overlap: ", overlap)
         return overlap
 
-    def obj_ds(self, circuit, simulator=Aer.get_backend('aer_simulator'), repetitions=1000):
+    def obj_ds(self, circuit, simulator=Aer.get_backend('aer_simulator'), repetitions=100):
         
         transpiled_circuit = transpile(circuit, simulator)
-        result = simulator.run(transpiled_circuit, shots=1000).result()
+        result = simulator.run(transpiled_circuit, shots=repetitions).result()
         # Ottieni i risultati
         
         counts = result.get_counts(transpiled_circuit)
+        lista = list(counts.keys())
+        #print("Lista: ", lista)
 
+        return self.MIO_state_overlap(lista,repetitions)
+
+        
+    def MIO_state_overlap(self,lista,repetitions):
+        count = 0
+        for elem in lista:
+            l = len(elem)
+            is_valid = True  # Presupponiamo che la stringa sia valida
+            #print("Stringa: ", elem)
+            for i in range(l // 2):
+                #print("Verifico: ",i,i+l//2, " : ", elem[i], elem[i + l//2])
+                if elem[i] == '1' and elem[i + l // 2] == '1':
+                    is_valid = False  # Se trovi una coppia "11", la stringa è invalida
+                    #print("Smetto di analizzare questo elemento")
+                    break  # Non serve continuare a controllare le altre coppie
+
+            if is_valid:
+                count += 1
+                #print("Count aumentato")
+
+            
+        #print("Ho trovato n coppie = ", count)
+        f = count/repetitions
+
+            #Parte della visione
         #print("Risultati della misura:", counts)
         
         # Step 5: Calculate overlap, where '0'*num_qubits is the all-zeros state
-        zero_state = '0' * self._num_qubits
-        overlap = counts[zero_state] / repetitions if zero_state in counts else 0
+        
         #print("Overlap: ", overlap)
-        return self.purity - overlap
+        return f
     
     def _get_mask_for_all_zero_outcome(self, outcome):
         """Returns a mask corresponding to indices ii from 0 to len(outcome) 

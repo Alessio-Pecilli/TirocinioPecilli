@@ -66,15 +66,8 @@ class StatePreparation:
         qc = QuantumCircuit(quantum_state.num_qubits)
         # Inizializza il circuito con lo stato fornito
         qc.initialize(quantum_state, range(quantum_state.num_qubits))
-        # Aggiungi operazioni di misura
-        #qc.measure(range(self.num_qubits), range(self.num_qubits))
 
-        # Usa il simulatore Aer
-        #simulator = Aer.get_backend('aer_simulator')
-        # Trasponi il circuito per adattarlo al backend
-        #transpiled_qc = transpile(qc, simulator)
-        
-        #return transpiled_qc
+        #self.printCircuit(qc)
         return qc
 
     def measure_statevector(self, quantum_state):
@@ -266,13 +259,13 @@ class StatePreparation:
         file_path = os.path.join(current_dir, self.ChooseRandomIMG())
         # Eseguire FromFileToStateVector e salvare il risultato nella lista
         risultato = self.FromFileToStateVector(file_path)
-        self.printCircuit(risultato)
+        #self.printCircuit(risultato)
         #print("Si lavora con uno stato PURO, lavoro con n_qubits: ", risultato.num_qubits)
         #print("RISULTATO INIZIALE-------------")
         
         
         
-        #self.printCircuit(risultato)
+        
         return risultato
     
     def printCircuit(self, circuit):

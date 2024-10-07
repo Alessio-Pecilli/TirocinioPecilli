@@ -55,6 +55,8 @@ class LayerPreparation:
 
         for l in range(num_layers):
             self.layer(params[l][0], params[l][1],)
+
+        #self.printCircuit(self.unitary_circ)
         return
     
     def layer(self, params, shifted_params):
@@ -193,14 +195,18 @@ class LayerPreparation:
 
         qc.compose(combined_circuit, range(combined_circuit.num_qubits),inplace=True)
         qc.compose(combined_circuit, range(combined_circuit.num_qubits, combined_circuit.num_qubits * 2),inplace=True)
+        #self.printCircuit(qc)
         return qc
     
     def get_prepare(self):
         circ = self.state_prep_circ
         qc = QuantumCircuit(circ.num_qubits*2)
         qc.compose(circ, range(circ.num_qubits),inplace=True)
+        qc.compose(circ, range(circ.num_qubits, circ.num_qubits * 2),inplace=True)
+
         return qc
     
     def get_binary(self):
-        self.printCircuit(self.mergePrepareUnitary())
+        #self.printCircuit(self.mergePrepareUnitary())
         return self.prep_state.getBinary()
+
