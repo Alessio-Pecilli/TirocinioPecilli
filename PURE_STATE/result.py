@@ -3,7 +3,7 @@
 # =============================================================================
 # Imports
 # =============================================================================
-
+import pandas as pd
 import cirq
 import numpy as np
 import matplotlib.pyplot as plt
@@ -32,12 +32,16 @@ class Result:
 
     def __init__(self,n):
         
+        
         batchStates, batchBinary  = self.load_img(n)
         self.params = self.get_params()
         #self.work_for_one(self.params)
         #self.c1(batchStates)
         #self.c2(batchStates)
-        print(self.c1_optimization(batchStates))
+        a = self.getRho(batchBinary)
+        self.c1_calc(a)
+        #result_op, params_star = self.c1_optimization(batchStates)
+        #self.density_matrix(a,params_star,self.num_layers,1)
         #print(batchBinary)
         #self.c1(batchStates)
         #self.c1_calc_tot(batchBinary)
@@ -49,14 +53,15 @@ class Result:
     
     def work_for_one(self,params):#Prova a calcolarmi la purezza per uno stato
         state, state_bin = self.load_img(1)
-        circ = Dip_Pdip(params,state[0],1)
+        #print("I parametri sono: ", len(params), ": ", params)
+        circ = Dip_Pdip(params,state[0],self.num_layers)
         a = circ.getFinalCircuitDS()
         print("Purezza finale ottenuta:", 2*circ.obj_ds(a) -1)
     
     def get_params(self):
         #Per ora uso n_qubit e n_layer fissi
         self._num_qubits = 8
-        self.num_layers = 1
+        self.num_layers = 2
         x = self.get_param_resolver(self._num_qubits, self.num_layers)
         params = self.min_to_vqsd(x,self._num_qubits, self.num_layers)
         return params
@@ -69,7 +74,7 @@ class Result:
     def c1(self,batchStates):
          
         dip = self.dip(self.params,batchStates)
-        purity = self.load_purity(self.params,batchStates)
+        purity = self.load_purity(self.params,batchStates,100)
         c1 = purity - dip
         #print("C1: ", purity, " - ", dip, " = ", c1)
         return c1
@@ -77,7 +82,7 @@ class Result:
     def c2(self,batchStates):
          
         pdip = self.pdip(self.params,batchStates)
-        purity = self.load_purity(self.params,batchStates)
+        purity = self.load_purity(self.params,batchStates,100)
         c2 = purity - pdip
         print("C2: ", purity, " - ", pdip, " = ", c2)
         return c2
@@ -95,7 +100,7 @@ class Result:
     def dip(self,params,batchStates):
         
         counts = {}
-        nrep = 1
+        nrep = 100
         for ii in range(len(batchStates)):
             circuit = Dip_Pdip(params,batchStates[ii],1)
             circ = circuit.getFinalCircuitDIP()
@@ -108,7 +113,7 @@ class Result:
                 else:
                     counts[state] = value  # Se lo stato non esiste, crea una nuova chiave
    
-        return self.overlap_from_count(counts,len(batchStates))
+        return self.overlap_from_count(counts,nrep)
     
     def pdip(self,params,batchStates):
         
@@ -156,13 +161,14 @@ class Result:
     
     
 
-    def load_purity(self,params,batch):
+    def load_purity(self,params,batch,nrep):
         ov = 0.0
         for ii in range(len(batch)):
             circuit = Dip_Pdip(params,batch[ii],1)
             ov += circuit.obj_ds(circuit.getFinalCircuitDS())    
             #print("OV: ",ov)     
-        return ov/len(batch)
+        f = (ov/(len(batch) * nrep))
+        return (2*f)-1
     
     def min_to_vqsd(self, param_list, num_qubits, num_layer):
         # Verifica il numero totale di elementi
@@ -273,9 +279,9 @@ class Result:
     def c1_wrapper(self, parametri, batchStates):
         params = parametri.reshape(self.params.shape)
         dip = self.dip(params, batchStates)  # Passa i parametri corretti
-        purity = self.load_purity(params, batchStates)
+        purity = self.load_purity(params, batchStates,100)
         c1 = purity - dip
-        #print("C1: ", purity, " - ", dip, " = ", c1)
+        print("C1: ", purity, " - ", dip, " = ", c1)
         return c1
 
     def c1_optimization(self, batchStates):
@@ -295,7 +301,7 @@ class Result:
     def c2_wrapper(self, parametri, batchStates):
         params = parametri.reshape(self.params.shape)
         pdip = self.pdip(params, batchStates)  # Passa i parametri corretti
-        purity = self.load_purity(params, batchStates)
+        purity = self.load_purity(params, batchStates,100)
         c2 = purity - pdip
         #print("C1: ", purity, " - ", dip, " = ", c1)
         return c2
@@ -314,6 +320,40 @@ class Result:
         optimized_params = result.x.reshape(self.params.shape)
         
         return result, optimized_params
+    
+    def getRho(self,batch):#Il circuito
+        #print("Entro in RHO")
+        val = 0.0
+        for a in batch:
+            val += a
+            
+        # Appiattisci la matrice in un vettore
+        normalized_params = val/len(batch)
+        vectorized_matrix = normalized_params.flatten()
+        # Crea uno stato quantistico Statevector dal vettore
+        quantum_state = Statevector(vectorized_matrix)
+        qc = QuantumCircuit(quantum_state.num_qubits)
+        qc.initialize(quantum_state, range(quantum_state.num_qubits))
+        return qc
+    
+    def density_matrix(self, rho, params, num_layers, n_rep):
+        print("Creo la matrice densità")
+        circ = Dip_Pdip(params,rho,num_layers)
+        a = circ.layer
+        a.save_density_matrix()
+        simulator = Aer.get_backend('aer_simulator')
+        transpiled_circuit = transpile(a, simulator)
+        result = simulator.run(transpiled_circuit, shots=n_rep).result()
+        # Ottieni la matrice densità dallo stato finale
+        density_matrix = result.data(0)['density_matrix']
+
+        # Stampa la matrice densità
+        np.set_printoptions(precision=2)  # Due cifre decimali
+        print(density_matrix)
+        # Creazione di un DataFrame
+        df = pd.DataFrame(density_matrix)
+        print(df)
+
 
 #for j in range(0,10):
-res = Result(1)
+res = Result(2)

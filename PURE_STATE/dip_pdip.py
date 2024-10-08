@@ -378,7 +378,7 @@ class Dip_Pdip:
         #print("Overlap: ", overlap)
         return overlap
 
-    def obj_ds(self, circuit, simulator=Aer.get_backend('aer_simulator'), repetitions=100):
+    def obj_ds(self, circuit, repetitions = 100, simulator=Aer.get_backend('aer_simulator')):
         
         transpiled_circuit = transpile(circuit, simulator)
         result = simulator.run(transpiled_circuit, shots=repetitions).result()
@@ -410,7 +410,6 @@ class Dip_Pdip:
 
             
         #print("Ho trovato n coppie = ", count)
-        f = count/repetitions
 
             #Parte della visione
         #print("Risultati della misura:", counts)
@@ -418,7 +417,7 @@ class Dip_Pdip:
         # Step 5: Calculate overlap, where '0'*num_qubits is the all-zeros state
         
         #print("Overlap: ", overlap)
-        return f
+        return count
     
     def _get_mask_for_all_zero_outcome(self, outcome):
         """Returns a mask corresponding to indices ii from 0 to len(outcome) 
