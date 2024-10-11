@@ -52,8 +52,10 @@ class LayerPreparation:
         self.state_prep_circ = state_prep_circ
         self.qubits = QuantumRegister(self._num_qubits)
         self.unitary_circ = QuantumCircuit(self.qubits)
-
+        
+        #print("NUMERO LAYER: ", num_layers)
         for l in range(num_layers):
+            #self.printCircuit(self.unitary_circ)
             self.layer(params[l][0], params[l][1],)
 
         #self.printCircuit(self.unitary_circ)
@@ -77,7 +79,7 @@ class LayerPreparation:
         """
         n = self._num_qubits
         if params.size != self.num_angles_required_for_layer()/2:
-            raise ValueError("incorrect number of parameters for layer")
+            raise ValueError("incorrect number of parameters for layer, params.size: ", params.size, " angoli richiesti: ", self.num_angles_required_for_layer()/2)
 
         # helper function for indexing loops
         stop = lambda n: n - 1 if n % 2 == 1 else n

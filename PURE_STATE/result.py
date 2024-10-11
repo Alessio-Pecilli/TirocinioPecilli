@@ -34,14 +34,17 @@ class Result:
         
         
         batchStates, batchBinary  = self.load_img(n)
-        self.params = self.get_params()
+        #self._num_qubits = int(batchStates[0].num_qubits)
+        #self.params = self.get_params(self._num_qubits)
         #self.work_for_one(self.params)
+        #print("Calcolo c1")
         #self.c1(batchStates)
         #self.c2(batchStates)
-        a = self.getRho(batchBinary)
-        self.c1_calc(a)
+        #print(batchBinary[0])
+        #b = self.getRhoMath(batchBinary)
+        #a = self.getRho(b)
         #result_op, params_star = self.c1_optimization(batchStates)
-        #self.density_matrix(a,params_star,self.num_layers,1)
+        #self.density_matrix(a,params_star,self.num_layers,100)
         #print(batchBinary)
         #self.c1(batchStates)
         #self.c1_calc_tot(batchBinary)
@@ -58,10 +61,10 @@ class Result:
         a = circ.getFinalCircuitDS()
         print("Purezza finale ottenuta:", 2*circ.obj_ds(a) -1)
     
-    def get_params(self):
+    def get_params(self,_num_qubits,_num_layer):
         #Per ora uso n_qubit e n_layer fissi
-        self._num_qubits = 8
-        self.num_layers = 2
+        self._num_qubits = _num_qubits
+        self.num_layers = _num_layer
         x = self.get_param_resolver(self._num_qubits, self.num_layers)
         params = self.min_to_vqsd(x,self._num_qubits, self.num_layers)
         return params
@@ -95,15 +98,17 @@ class Result:
     def c1_calc(self,arr):
         p = self.calc_purity(arr)
         d = self.calc_dip(arr)
-        print("Risultati atteso n:  = ",  p - d, " Purezza: ",p, " Dip: ",d)
+        #print("Risultati atteso n:  = ",  p - d, " Purezza: ",p, " Dip: ",d)
+        return p - d
 
     def dip(self,params,batchStates):
         
         counts = {}
         nrep = 100
         for ii in range(len(batchStates)):
-            circuit = Dip_Pdip(params,batchStates[ii],1)
+            circuit = Dip_Pdip(params,batchStates[ii],self.num_layers)
             circ = circuit.getFinalCircuitDIP()
+            #self.printCircuit(circ)
             #circuit.compute_purity(1)
             
             count = circuit.obj_dip_counts(circ,nrep)
@@ -119,11 +124,12 @@ class Result:
         
         ov = 0.0
         for ii in range(len(batchStates)):
-            circuit = Dip_Pdip(params,batchStates[ii],1)
+            circuit = Dip_Pdip(params,batchStates[ii],self.num_layers)
             ov += circuit.pdip_test()
         return ov/len(batchStates)
     
     def overlap_from_count(self, counts, repetitions):
+        #print("Risultati per il dip: ", counts)
         zero_state = '0' * self._num_qubits
         zero_state_count = 0
         
@@ -157,6 +163,7 @@ class Result:
                 zero_state_count += count_dict[zero_state]
 
         #print(f"Numero totale di occorrenze di {zero_state}: {zero_state_count}")
+        #print("Ho calcolato 0 * n_quibit un numero di volte = ", zero_state_count)
         return zero_state_count / repetitions
     
     
@@ -164,10 +171,10 @@ class Result:
     def load_purity(self,params,batch,nrep):
         ov = 0.0
         for ii in range(len(batch)):
-            circuit = Dip_Pdip(params,batch[ii],1)
+            circuit = Dip_Pdip(params,batch[ii],self.num_layers)
             ov += circuit.obj_ds(circuit.getFinalCircuitDS())    
             #print("OV: ",ov)     
-        f = (ov/(len(batch) * nrep))
+        f = ov/(len(batch) * nrep)
         return (2*f)-1
     
     def min_to_vqsd(self, param_list, num_qubits, num_layer):
@@ -245,28 +252,14 @@ class Result:
         
         return np.matmul(Z_j, np.matmul(rho, Z_j.conj().T))
 
-    def trace_Z_rho_squared(self,rho, channel_type='global', j=None, n_qubits=None):
+    def trace_Z_rho_squared(self,rho):
         #print(rho)
         #print("bb:" , type(rho))
         #print("RHO TYPE: ", print(type(rho)))
         
-        """
-        Calcola Tr(Z(ρ)²) per il canale di defasamento specificato.
+
+        Z_rho = self.global_dephasing_channel(rho*rho)
         
-        :param rho: Matrice densità dell'stato quantistico
-        :param channel_type: 'global' per Z, 'local' per Z_j
-        :param j: Indice del qubit per il defasamento locale (richiesto se channel_type='local')
-        :param n_qubits: Numero totale di qubit (richiesto se channel_type='local')
-        :return: Il valore di Tr(Z(ρ)²)
-        """
-        if channel_type == 'global':
-            Z_rho = self.global_dephasing_channel(rho)
-        elif channel_type == 'local':
-            if j is None or n_qubits is None:
-                raise ValueError("Per il canale locale, specificare j e n_qubits")
-            Z_rho = self.local_dephasing_channel(rho, j, n_qubits)
-        else:
-            raise ValueError("channel_type deve essere 'global' o 'local'")
         #print("Vecchio:", type(Z_rho))
         Z_rho_squared = np.matmul(Z_rho, Z_rho)
         Z_rho_squared = np.atleast_2d(Z_rho_squared) 
@@ -321,20 +314,28 @@ class Result:
         
         return result, optimized_params
     
-    def getRho(self,batch):#Il circuito
-        #print("Entro in RHO")
-        val = 0.0
-        for a in batch:
-            val += a
-            
-        # Appiattisci la matrice in un vettore
-        normalized_params = val/len(batch)
-        vectorized_matrix = normalized_params.flatten()
-        # Crea uno stato quantistico Statevector dal vettore
-        quantum_state = Statevector(vectorized_matrix)
+    def getStateFromvector(self,rho):#Il circuito
+        
+        quantum_state = Statevector(rho)
         qc = QuantumCircuit(quantum_state.num_qubits)
         qc.initialize(quantum_state, range(quantum_state.num_qubits))
         return qc
+    
+    def getRhoMath(self,batch):
+        #print("Entro in RHO")
+        val = 0.0
+        for a in batch:
+            #print(a)
+            val += a
+        val/=len(batch)    
+        # Appiattisci la matrice in un vettore
+        norm_squared = np.sum(np.abs(val) ** 2)
+        # Normalizza il vettore per la radice quadrata della norma dei quadrati degli amplitudi
+        normalized_params = val / np.sqrt(norm_squared)
+        
+        vectorized_matrix = normalized_params.flatten()
+        # Crea uno stato quantistico Statevector dal vettore
+        return vectorized_matrix
     
     def density_matrix(self, rho, params, num_layers, n_rep):
         print("Creo la matrice densità")
@@ -348,11 +349,15 @@ class Result:
         density_matrix = result.data(0)['density_matrix']
 
         # Stampa la matrice densità
-        np.set_printoptions(precision=2)  # Due cifre decimali
-        print(density_matrix)
-        # Creazione di un DataFrame
-        df = pd.DataFrame(density_matrix)
-        print(df)
+        autovalori, autovettori = np.linalg.eigh(density_matrix)
+
+        # Ordinamento decrescente degli autovalori e corrispondenti autovettori
+        idx = np.argsort(autovalori)[::-1]  # Ordine decrescente
+        autovalori_ordinati = autovalori[idx]
+        autovettori_ordinati = autovettori[:, idx]
+
+        print("Autovalori ordinati:", autovalori_ordinati)
+        print("Autovettori ordinati:\n", autovettori_ordinati)
 
 
 #for j in range(0,10):

@@ -122,6 +122,7 @@ class StatePreparation:
                 print(f"{c} * |{i:0{num_digits}b}> +")
 
     def normalizzazione1024(self, binary_array):
+        
         if np.log2(binary_array.shape[0]) % 1 != 0:
             next_power_of_2_rows = 2 ** int(np.ceil(np.log2(binary_array.shape[0])))
             num_rows_to_add = next_power_of_2_rows - binary_array.shape[0]
@@ -133,6 +134,7 @@ class StatePreparation:
             num_cols_to_add = next_power_of_2_cols - binary_array.shape[1]
             binary_array = np.hstack((binary_array, np.ones((binary_array.shape[0], num_cols_to_add), dtype=binary_array.dtype)))
 
+        
         norm_squared = np.sum(np.abs(binary_array) ** 2)
         # Normalizza il vettore per la radice quadrata della norma dei quadrati degli amplitudi
         normalized_params = binary_array / np.sqrt(norm_squared)
@@ -152,6 +154,7 @@ class StatePreparation:
         return self.statePrep(quantum_state)
     
     def normalizzazione256(self, binary_array):
+        #print(binary_array, "------------------------------")
         if np.log2(binary_array.shape[0]) % 1 != 0:
             next_power_of_2_rows = 2 ** int(np.ceil(np.log2(binary_array.shape[0])))
             num_rows_to_add = next_power_of_2_rows - binary_array.shape[0]
@@ -166,8 +169,9 @@ class StatePreparation:
         np.set_printoptions(threshold=np.inf, suppress=True, precision=4)
 
         # Stampa l'array
-        #print(binary_array)
+       
         reduced_array = np.zeros((16, 16), dtype=int)
+        #print("Ridotto",binary_array)
         
         
         for i in range(16):
@@ -192,7 +196,7 @@ class StatePreparation:
         # Stampa l'array
         #print(reduced_array)
         binary_array = reduced_array
-        
+        #print("Ridotto",binary_array)
 
         norm_squared = np.sum(np.abs(binary_array) ** 2)
         # Normalizza il vettore per la radice quadrata della norma dei quadrati degli amplitudi

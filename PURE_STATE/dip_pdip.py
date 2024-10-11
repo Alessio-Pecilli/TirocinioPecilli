@@ -385,10 +385,16 @@ class Dip_Pdip:
         # Ottieni i risultati
         
         counts = result.get_counts(transpiled_circuit)
+        #print("counts: ", counts)
+        result = []
+        for key, value in counts.items():
+            result.extend([key] * value)
+
+        #print(len(result))
         lista = list(counts.keys())
         #print("Lista: ", lista)
 
-        return self.MIO_state_overlap(lista,repetitions)
+        return self.MIO_state_overlap(result,repetitions)
 
         
     def MIO_state_overlap(self,lista,repetitions):
