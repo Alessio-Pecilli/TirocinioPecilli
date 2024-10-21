@@ -54,8 +54,11 @@ class LayerPreparation:
         self.unitary_circ = QuantumCircuit(self.qubits)
         
         #print("NUMERO LAYER: ", num_layers)
+        #print("Devo applicare questi parametri: ", params)
+           
         for l in range(num_layers):
-            #self.printCircuit(self.unitary_circ)
+                #print("Applico correttamente i parametri")
+                #self.printCircuit(self.unitary_circ)
             self.layer(params[l][0], params[l][1],)
 
         #self.printCircuit(self.unitary_circ)
@@ -102,7 +105,7 @@ class LayerPreparation:
             self.printCircuit(self.unitary_circ)
             self._apply_gate(self.qubits[iiq : iiq + 2], params[ii // 2])"""
         
-        if n > 2:
+        if n >= 2:
             for ii in range(1, n, 2):
                 self._apply_gate([self.qubits[ii],
                       self.qubits[(ii + 1) % n]],
@@ -182,10 +185,17 @@ class LayerPreparation:
         img = Image.open(image_path)
         img.show()
 
+    def get_unitary2(self):
+
+        combined_circuit = QuantumCircuit(self._num_qubits)
+        combined_circuit.compose(self.unitary_circ,inplace=True)
+        return combined_circuit
+
     def mergePrepareUnitary(self):
         combined_circuit = QuantumCircuit(self._num_qubits)
         combined_circuit.compose(self.state_prep_circ,inplace=True)
         combined_circuit.compose(self.unitary_circ,inplace=True)
+        #self.printCircuit(combined_circuit)
         return combined_circuit
 
     def get_double(self):

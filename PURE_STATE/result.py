@@ -33,9 +33,9 @@ class Result:
     def __init__(self,n):
         
         
-        batchStates, batchBinary  = self.load_img(n)
+        #batchStates, batchBinary  = self.load_img(n)
         #self._num_qubits = int(batchStates[0].num_qubits)
-        #self.params = self.get_params(self._num_qubits)
+        #self.params = self.get_params(self._num_qubits,1)
         #self.work_for_one(self.params)
         #print("Calcolo c1")
         #self.c1(batchStates)
@@ -104,7 +104,7 @@ class Result:
     def dip(self,params,batchStates):
         
         counts = {}
-        nrep = 100
+        nrep = 1000
         for ii in range(len(batchStates)):
             circuit = Dip_Pdip(params,batchStates[ii],self.num_layers)
             circ = circuit.getFinalCircuitDIP()
@@ -336,6 +336,13 @@ class Result:
         vectorized_matrix = normalized_params.flatten()
         # Crea uno stato quantistico Statevector dal vettore
         return vectorized_matrix
+    
+    def getRho(self,rho):#Il circuito
+        
+        quantum_state = Statevector(rho)
+        qc = QuantumCircuit(quantum_state.num_qubits)
+        qc.initialize(quantum_state, range(quantum_state.num_qubits))
+        return qc
     
     def density_matrix(self, rho, params, num_layers, n_rep):
         print("Creo la matrice densità")

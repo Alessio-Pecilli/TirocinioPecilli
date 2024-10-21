@@ -46,6 +46,7 @@ class Dip_Pdip:
         self.layer = self.unitary.mergePrepareUnitary()
         self.double = self.unitary.get_double()
         self.single = self.unitary.get_prepare()
+        self.unitaria2 = self.unitary.get_unitary2()
         
         # key for measurements and statistics
         self._measure_key = "z"
