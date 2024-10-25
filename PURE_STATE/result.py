@@ -72,6 +72,8 @@ class Result:
     def load_img(self,n):
         state_prep = StatePreparation(n)
         batchStates, batchBinary = state_prep.LoadVectorMultiplo()
+        for e in batchBinary:
+            print(e)
         return batchStates, batchBinary
     
     def c1(self,batchStates):
@@ -102,15 +104,15 @@ class Result:
         return p - d
 
     def dip(self,params,batchStates):
-        
         counts = {}
+        tot = 0
         nrep = 1000
         for ii in range(len(batchStates)):
             circuit = Dip_Pdip(params,batchStates[ii],self.num_layers)
             circ = circuit.getFinalCircuitDIP()
             #self.printCircuit(circ)
             #circuit.compute_purity(1)
-            
+            tot += nrep
             count = circuit.obj_dip_counts(circ,nrep)
             for state, value in count.items():
                 if state in counts:
@@ -118,7 +120,7 @@ class Result:
                 else:
                     counts[state] = value  # Se lo stato non esiste, crea una nuova chiave
    
-        return self.overlap_from_count(counts,nrep)
+        return self.overlap_from_count(counts,tot)
     
     def pdip(self,params,batchStates):
         

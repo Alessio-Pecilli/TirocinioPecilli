@@ -25,51 +25,59 @@ from qiskit.visualization import plot_histogram
 from scipy.optimize import minimize
 from result import Result
 import matplotlib.pyplot as plt
+import time
 
 class Main:
 
     def __init__(self):
-        self.res = Result(1)
+        self.min = 1
+        self.res = Result(257)
         a = np.array([1/np.sqrt(2), 0 ,0,1/np.sqrt(2)])
         b = np.array([0,1/np.sqrt(2), 1/np.sqrt(2),0])
-        self.totLayer = 2
-        batch = [a]
+        self.totLayer = 1
+        batchStates, batchBinary = self.res.load_img(17)
+        #print(batchBinary[0].shape)
+        #print(batchBinary[1].shape)
+        #print(np.log2(batchBinary[1].shape[0]))
+        #batchBinary = [a,b]
+        self.num_qubits = int(np.log2(batchBinary[1].shape[0]))
+        #print("sono x qubiut:" , self.num_qubits)
+        #batchBinary = [a,b]
+        
         # Calcolo degli autovalori e degli autovettori
-        self.rho = self.getRhoMath(batch)
-        self.psi = a
+        self.rho = self.getRhoMath(batchBinary)
+        #self.psi = a
         self.c1Array = []
-        self.DMaggioreArray = []
-        self.OverlapArray = []
-        self.LambdaArray = []
+        self.RhoArray = []
+        self.DArray = []
+        self.LArray = []
+        self.DLambda = []
         self.num_layer = 1
         
         for self.num_layer in range(1,self.totLayer + 1):
             self.toFind = True
             print("Ora lavoro con n_layer: ", self.num_layer)
-            self.a = self.res.get_params(2, self.num_layer)
+            self.a = self.res.get_params(self.num_qubits, self.num_layer)
             while(self.toFind is True):
                 #self.c1_optimization(a)
                 
-                self.c1_optimizationNUOVO(batch)
-        self.plot()
+                self.c1_optimizationNUOVO(batchBinary)
+        #self.plot()
+        for elem in self.DLambda:
+            print(elem)
 
     def plot(self):
         layers = np.arange(1, self.totLayer + 1)  # Numero di layer da 1 a 5
         # Creazione del plot
         plt.figure(figsize=(10, 6))
         # Plot per C1 finale
-        print("Overlap:")
-        print(self.OverlapArray)
-        print("D MAggiore:")
-        print(self.DMaggioreArray)
+       
         c1Array = np.array(self.c1Array)  # Converte in array NumPy
-        DMaggioreArray = np.array(self.DMaggioreArray)  # Converte in array NumPy
-        OverlapArray = np.array(self.OverlapArray)  # Converte in array NumPy
 
         # Ora puoi usare .real
         plt.plot(layers, c1Array.real, marker='o', linestyle='-', color='b', label='C1 finale')
-        plt.plot(layers, DMaggioreArray.real, marker='s', linestyle='--', color='r', label='Elementi di D maggiori')
-        plt.plot(layers, OverlapArray.real, marker='o', linestyle='-', color='g', label='Overlap')
+        #plt.plot(layers, DMaggioreArray.real, marker='s', linestyle='--', color='r', label='Elementi di D maggiori')
+        #plt.plot(layers, OverlapArray.real, marker='o', linestyle='-', color='g', label='Overlap')
 
         # Dettagli del grafico
         plt.xlabel('Numero di Layer')
@@ -103,14 +111,18 @@ class Main:
             qc = QuantumCircuit(quantum_state.num_qubits)
             qc.initialize(quantum_state, range(quantum_state.num_qubits))
             b = [qc]
-            purity = self.res.load_purity(params, b,100)
+            purity = self.load_purity(params, b,100)
             #print("C1: ", purity, " - ", dip, " = ", purity - dip)
+            if(purity - dip) < 0.5:
+                print("Arriva sotto 0.5")
+            if(purity - dip) < 0.5:
+                print("Arriva sotto 0.3")
             if purity - dip == 0:
                 self.toFind = False
                 #print("SONO ENTRATO NEL GIUSTO BLOCCO")
-                self.c1Array.append(purity-dip)
-                
+                self.c1Array.append(purity-dip)     
                 optimized_params = parametri.reshape(self.a.shape)
+                print("Parametri ottimi trovati: ", optimized_params)
                 x = Dip_Pdip(optimized_params,b[0],self.num_layer)
                 self.unitaria = self.getUnitaria(x.unitaria2)
                 #self.density_matrix(self.getQc(vectorized_matrix),optimized_params,self.num_layer,1000)
@@ -138,6 +150,7 @@ class Main:
     
     def c1_optimizationNUOVO(self, batch):
         # Appiattisci i parametri solo per la fase di ottimizzazione
+        
         flat_params = np.ravel(self.a)
         # Passa i parametri appiattiti a minimize con i vincoli
         """Devo rendere stati i miei batch"""
@@ -145,27 +158,33 @@ class Main:
         for i in range(len(batch)):
             a = batch[i].flatten()
             k.append(self.getQc(a)) 
+            #self.printCircuit(self.getQc(a))
          # Usa append sulla lista
 
         result = minimize(self.c1, flat_params, args=(k,), method="cobyla")    
+        print("Il minimo ottenuto corrisponde a: ", self.min)
         #Set num max di ripe o delta di errore, mettere che se trova C1 = 0 si ferma
         #result = minimize(self.testCirc, result.x, args=(vector,), method="cobyla") 
         # Puoi riconvertire result.x alla forma originale, se necessario
         optimized_params = result.x.reshape(self.a.shape)
-        
+        self.a = optimized_params
         return result, optimized_params
     
     def c1(self,params,batchStates):
         if self.toFind is True:
             parametri = params.reshape(self.a.shape)
-            dip = self.dip(parametri,batchStates)
+            dip = self.res.dip(parametri,batchStates)
             purity = self.load_purity(parametri,batchStates,100)
             c1 = purity - dip
+            if self.min > c1:
+                self.min = c1
             #print("C1: ", purity, " - ", dip, " = ", c1)
-            if c1 == 0:
+            epsilon = 1e-2
+            if c1 < epsilon:
                 self.toFind = False
                 self.c1Array.append(purity-dip)
                 optimized_params = params.reshape(self.a.shape)
+                print("Parametri ottimi trovati: ", optimized_params)
                 x = Dip_Pdip(optimized_params,batchStates[0],self.num_layer)
                 self.unitaria = self.getUnitaria(x.unitaria2)
                 self.work()
@@ -173,6 +192,16 @@ class Main:
             return purity - dip
         else:
             return 1
+        
+    def printCircuit(self, circuit):
+        current_dir = os.path.dirname(os.path.realpath(__file__))        
+        # Salva il circuito come immagine
+        image_path = os.path.join(current_dir, 'PrepStatePassato.png')
+        circuit_drawer(circuit, output='mpl', filename=image_path)
+        
+        # Apri automaticamente l'immagine
+        img = Image.open(image_path)
+        img.show()
     
     def load_purity(self,params,batch,nrep):
         ov = 0.0
@@ -183,75 +212,17 @@ class Main:
         f = ov/(len(batch) * nrep)
         return (2*f)-1
     
-    def dip(self,params,batchStates):
-        
-        counts = {}
-        countRep = 0
-        nrep = 1000
-        for ii in range(len(batchStates)):
-            circuit = Dip_Pdip(params,batchStates[ii],1)
-            circ = circuit.getFinalCircuitDIP()
-            #self.printCircuit(circ)
-            #circuit.compute_purity(1)
-            countRep += nrep
-            count = circuit.obj_dip_counts(circ,nrep)
-            for state, value in count.items():
-                if state in counts:
-                    counts[state] += value  # Se lo stato esiste, somma i valori
-                else:
-                    counts[state] = value  # Se lo stato non esiste, crea una nuova chiave
-   
-        return self.overlap_from_count(counts,countRep)
-    
     def getQc(self,qs):#Il circuito
         quantum_state = Statevector(qs)
         qc = QuantumCircuit(quantum_state.num_qubits)
         qc.initialize(quantum_state, range(quantum_state.num_qubits))
         return qc
     
-    def overlap_from_count(self, counts, repetitions):
-        #print("Risultati per il dip: ", counts)
-        zero_state = '0' * 2
-        zero_state_count = 0
-        
-        # Se counts non è una lista, lo mettiamo in una lista
-        if not isinstance(counts, list):
-            counts = [counts]
-        
-        for i, count_item in enumerate(counts):
-            #print(f"Esaminando elemento {i + 1}: {count_item}")
-            
-            if isinstance(count_item, dict):
-                # Se è già un dizionario, lo usiamo direttamente
-                count_dict = count_item
-            elif isinstance(count_item, str):
-                # Se è una stringa, proviamo a convertirla in un dizionario
-                try:
-                    count_dict = eval(count_item)
-                except:
-                    print(f"Impossibile convertire la stringa in dizionario: {count_item}")
-                    continue
-            elif isinstance(count_item, int):
-                # Se è un intero, lo trattiamo come il conteggio diretto dello zero_state
-                zero_state_count += count_item
-                continue
-            else:
-                print(f"Tipo di dato non supportato: {type(count_item)}")
-                continue
-            
-            if isinstance(count_dict, dict) and zero_state in count_dict:
-                #print(f"Trovato {zero_state} con valore: {count_dict[zero_state]}")
-                zero_state_count += count_dict[zero_state]
-
-        #print(f"Numero totale di occorrenze di {zero_state}: {zero_state_count}")
-        #print("Ho calcolato 0 * n_quibit un numero di volte = ", zero_state_count)
-        return zero_state_count / repetitions
-    
-    def getRhoMath(self,batch):
+    def getRhoMath(self, batch):
         val = 0.0
         for a in batch:
             val += np.outer(a, a.conj())
-        print("Rho:\n", val)
+        print("Rho calcolato:\n", val/len(batch))
         return val/len(batch)    
     
     def work(self):
@@ -259,33 +230,68 @@ class Main:
         rho = self.rho
         #print("Matrice unitaria:", unitary.shape)
         
-        print()
+        #print("Rho da input: ",rho)
         U = L.T.conj()
         U_conj_T = L
         D = np.matmul(np.matmul(U_conj_T,rho),U)
         rho = np.matmul(np.matmul(U,D),U_conj_T)
-        print("Rho: ", rho)
-        
-        print("D calcolato:____________________________________")
+        print("Rho calcolato a partire da U e D: ", rho)
+        self.RhoArray.append(rho)
+        self.DArray.append(D)
+        self.DArray.append(L)
+        print("D a precisione 5:")
+        np.set_printoptions(precision=2)
         print(D)
-        self.DMaggioreArray.append(np.max(np.diag(D)))
         print("L:")
         #print(L)
-        print(np.round(L, 2))
+        print(L)
+        # Applica la condizione: se l'elemento è < 0.9, diventa 0; altrimenti 1
+        matrice = np.where(D < 0.1, 0, D)
+        print("D approssimato:")
+        print(matrice)
+        print("------------------")
+        #print("D e' diaognale?", self.is_diagonale(D))
+        #print("GLi 1 si trovano")
+        #print(self.trova_posizioni_uno(D))
+        
         #print("------------------------------------------------------------------")
-
+        for i in range (0,D[0].size):
+            if D[i][i] != 0:
+                lambda_ = L[i,:]
+                self.add_value(D[i][i],lambda_)
+        """
+        a = 0
+        for i in self.get_nonzero_indices(matrice):
+            lambda_ = L[i,:]
+            a+= self.conversione(lambda_)
+        
+        print("Vettore ottenuto nuovamente:")
+        print(a)
+        
+        print(self.convert_eigenvectors_to_images(D))
+        nonzero_indices = self.get_nonzero_indices(D)
         i = np.argmax(np.diag(D))
         lambda_ = L[i,:]
+        self.conversione(lambda_)
         lambda_conj = np.conjugate(lambda_)
-        print("Lambda trovato: ", lambda_, " lambda coniugato: ", lambda_conj, " psi vale: ", self.psi)
+        #print("Lambda trovato: ", lambda_, " lambda coniugato: ", lambda_conj, " psi vale: ", self.psi)
         dot_product = np.dot(self.psi, lambda_conj)
-        print(" Il dot product = ", dot_product)
+        #print(" Il dot product = ", dot_product)
         mod_quadro = np.abs(dot_product)**2
 
-        self.OverlapArray.append(mod_quadro)
+        self.OverlapArray.append(mod_quadro)"""
 
         #psi è a
+    def trova_posizioni_uno(self,matrice):
+        # Trova le posizioni degli elementi uguali a 1
+        posizioni = np.argwhere(matrice == 1)
+        # Converti le posizioni in una lista di tuple
+        lista_posizioni = [tuple(posizione) for posizione in posizioni]
+        return lista_posizioni
 
+    def is_diagonale(self,matrice):
+    # Confronta la matrice con la sua versione diagonale estratta usando np.diag
+        return np.all(matrice == np.diag(np.diag(matrice)))
 
         
 
@@ -307,8 +313,43 @@ class Main:
         print()
         print("Matrice densità: ")
         print(self.matrice_dens)
+        
         #print(np.round(self.matrice_dens.data, 2)
 
+    def add_value(self,D, autovettore):
+        self.DLambda.append((D, autovettore))
+        self.DLambda.sort(key=lambda x: x[0], reverse=True) 
 
+    def conversione(self,eigenvector):
+        print("Converto-------------------------------", eigenvector)
+        norm = np.linalg.norm(eigenvector)
+        normalized_vector = eigenvector / norm
+
+        # Pixelizzazione
+        pixelized_vector = np.where(np.abs(normalized_vector) > 0.5, 1, 0)
+        print("Convertsitio: ", pixelized_vector)
+        # Tramutare in matrice (assumendo che la lunghezza dell'eigenvector sia un quadrato perfetto)
+        #side_length = int(np.sqrt(len(pixelized_vector)))
+        #image_matrix = pixelized_vector.reshape((side_length, side_length))
+        return pixelized_vector
+    
+    def get_nonzero_indices(self, D):
+        """
+        Restituisce gli indici dei valori non nulli nella matrice diagonale D,
+        considerando una soglia per valori estremamente piccoli.
+        """
+        # Ottieni i valori dalla diagonale
+        diagonal_values = np.diag(D)
         
+        # Trova gli indici dei valori non nulli
+        indici = [i for i, elem in enumerate(diagonal_values) if 0.1 <= elem < 1 and not (0 < elem < 0.1)]
+        print("Indici: ", indici)
+        return indici
+
+
+start_time = time.time()
 main = Main()
+end_time = time.time()
+
+print(f"Tempo di esecuzione: {end_time - start_time:.2f} secondi")
+        

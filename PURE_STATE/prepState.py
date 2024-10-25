@@ -41,7 +41,7 @@ class StatePreparation:
     def FromFileToStateVector(self, file_path):
         processor = readMINST.MINSTImageProcessor()
         binary_array = processor.produceArray(file_path, random.randint(1, 10000))
-        return self.normalizzazione256(binary_array)
+        return self.normalizzazione64(binary_array)
 
     def statePrep(self, quantum_state):
         
@@ -153,7 +153,7 @@ class StatePreparation:
 
         return self.statePrep(quantum_state)
     
-    def normalizzazione256(self, binary_array):
+    def normalizzazione64(self, binary_array):
         #print(binary_array, "------------------------------")
         if np.log2(binary_array.shape[0]) % 1 != 0:
             next_power_of_2_rows = 2 ** int(np.ceil(np.log2(binary_array.shape[0])))
@@ -169,13 +169,13 @@ class StatePreparation:
         np.set_printoptions(threshold=np.inf, suppress=True, precision=4)
 
         # Stampa l'array
-       
-        reduced_array = np.zeros((16, 16), dtype=int)
-        #print("Ridotto",binary_array)
+        a = 4
+        reduced_array = np.zeros((a, a), dtype=int)
+        #print("Ridotto",reduced_array)
         
         
-        for i in range(16):
-            for j in range(16):
+        for i in range(a):
+            for j in range(a):
                 # Prendiamo un blocco 2x2 dall'array originale
                 block = binary_array[2*i:2*i+2, 2*j:2*j+2]
                 
@@ -190,7 +190,8 @@ class StatePreparation:
                 else:  # Più 0 che 1
                     reduced_array[i, j] = 0
 
-        reduced_array = 1 - reduced_array
+        #reduced_array = 1 - reduced_array
+        #print(reduced_array)
         np.set_printoptions(threshold=np.inf, suppress=True, precision=4)
 
         # Stampa l'array
@@ -282,12 +283,5 @@ class StatePreparation:
         img = Image.open(image_path)
         img.show()
 
-#prep_state = StatePreparation(1)
-        
-        # Prepara il circuito di stato e salva il numero di qubit
-#state_prep_circ = prep_state.PrepareONECircuit()
-#_num_qubits = int(state_prep_circ.num_qubits)
-        
-#_total_num_qubits = _num_qubits * 2
-#print(_num_qubits, " ", _total_num_qubits)
-
+state_prep = StatePreparation(1)
+batchStates, batchBinary = state_prep.LoadVectorMultiplo();
