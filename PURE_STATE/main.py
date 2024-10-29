@@ -31,40 +31,41 @@ class Main:
 
     def __init__(self):
         self.min = 1
-        self.res = Result(257)
-        a = np.array([1/np.sqrt(2), 0 ,0,1/np.sqrt(2)])
-        b = np.array([0,1/np.sqrt(2), 1/np.sqrt(2),0])
-        self.totLayer = 1
-        batchStates, batchBinary = self.res.load_img(17)
-        #print(batchBinary[0].shape)
-        #print(batchBinary[1].shape)
-        #print(np.log2(batchBinary[1].shape[0]))
-        #batchBinary = [a,b]
-        self.num_qubits = int(np.log2(batchBinary[1].shape[0]))
-        #print("sono x qubiut:" , self.num_qubits)
-        #batchBinary = [a,b]
-        
-        # Calcolo degli autovalori e degli autovettori
-        self.rho = self.getRhoMath(batchBinary)
-        #self.psi = a
+        self.res = Result(1)
         self.c1Array = []
         self.RhoArray = []
         self.DArray = []
         self.LArray = []
         self.DLambda = []
-        self.num_layer = 1
+        self.totLayer = 1
         
+        self.MNISTTest()
+
+    def testTwoStates(self):
+        a = np.array([1/np.sqrt(2), 0 ,0,1/np.sqrt(2)])
+        b = np.array([0,1/np.sqrt(2), 1/np.sqrt(2),0])
+        batchBinary = [a,b]
+        self.rho = self.getRhoMath(batchBinary)
+        self.num_qubits = 2
         for self.num_layer in range(1,self.totLayer + 1):
             self.toFind = True
             print("Ora lavoro con n_layer: ", self.num_layer)
             self.a = self.res.get_params(self.num_qubits, self.num_layer)
             while(self.toFind is True):
-                #self.c1_optimization(a)
-                
-                self.c1_optimizationNUOVO(batchBinary)
-        #self.plot()
-        for elem in self.DLambda:
-            print(elem)
+                self.c1_optimization(batchBinary)
+
+
+    def MNISTTest(self):
+        batchStates, batchBinary = self.res.load_img(17)
+        self.rho = self.getRhoMath(batchBinary)
+        self.num_qubits = int(np.log2(batchBinary[1].shape[0]))
+        for self.num_layer in range(1,self.totLayer + 1):
+            self.toFind = True
+            print("Ora lavoro con n_layer: ", self.num_layer)
+            self.a = self.res.get_params(self.num_qubits, self.num_layer)
+            while(self.toFind is True):
+                self.c1_optimization(batchBinary)
+        return
 
     def plot(self):
         layers = np.arange(1, self.totLayer + 1)  # Numero di layer da 1 a 5
@@ -136,7 +137,7 @@ class Main:
         #self.res.printCircuit(qc)
         return qi.Operator(qc)
     
-    def c1_optimization(self, vector):
+    def c1_optimizationOLD(self, vector):
         # Appiattisci i parametri solo per la fase di ottimizzazione
         flat_params = np.ravel(self.a)
         # Passa i parametri appiattiti a minimize con i vincoli
@@ -148,7 +149,7 @@ class Main:
         
         return result, optimized_params
     
-    def c1_optimizationNUOVO(self, batch):
+    def c1_optimization(self, batch):
         # Appiattisci i parametri solo per la fase di ottimizzazione
         
         flat_params = np.ravel(self.a)
@@ -255,19 +256,19 @@ class Main:
         #print(self.trova_posizioni_uno(D))
         
         #print("------------------------------------------------------------------")
+        risultati = []
         for i in range (0,D[0].size):
+            lambda_ = L[i,:]
             if D[i][i] != 0:
                 lambda_ = L[i,:]
                 self.add_value(D[i][i],lambda_)
+            risultati.append(self.conversione(lambda_))
+
+        array_finale = np.array(risultati)
+        print("Array ottenuto nuovamente:")
+        print(array_finale)
+
         """
-        a = 0
-        for i in self.get_nonzero_indices(matrice):
-            lambda_ = L[i,:]
-            a+= self.conversione(lambda_)
-        
-        print("Vettore ottenuto nuovamente:")
-        print(a)
-        
         print(self.convert_eigenvectors_to_images(D))
         nonzero_indices = self.get_nonzero_indices(D)
         i = np.argmax(np.diag(D))
@@ -299,9 +300,6 @@ class Main:
         #print("parametri trovati matematicamente:" ,params)
         circ = Dip_Pdip(params,rho,num_layers)
         a = circ.layer
-        #self.res.printCircuit(a)
-        #print("PARAMETRI TROVATI PER CUI C1 = 0 NEL CIRCUITO" , a.parameters)
-        #self.res.printCircuit(a)
         a.save_density_matrix()
         simulator = Aer.get_backend('aer_simulator')
         transpiled_circuit = transpile(a, simulator)
@@ -321,16 +319,11 @@ class Main:
         self.DLambda.sort(key=lambda x: x[0], reverse=True) 
 
     def conversione(self,eigenvector):
-        print("Converto-------------------------------", eigenvector)
         norm = np.linalg.norm(eigenvector)
         normalized_vector = eigenvector / norm
 
         # Pixelizzazione
         pixelized_vector = np.where(np.abs(normalized_vector) > 0.5, 1, 0)
-        print("Convertsitio: ", pixelized_vector)
-        # Tramutare in matrice (assumendo che la lunghezza dell'eigenvector sia un quadrato perfetto)
-        #side_length = int(np.sqrt(len(pixelized_vector)))
-        #image_matrix = pixelized_vector.reshape((side_length, side_length))
         return pixelized_vector
     
     def get_nonzero_indices(self, D):
