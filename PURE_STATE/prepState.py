@@ -155,7 +155,8 @@ class StatePreparation:
     
     def normalizzazione64(self, binary_array):
         #print(binary_array, "------------------------------")
-        if np.log2(binary_array.shape[0]) % 1 != 0:
+        np.set_printoptions(threshold=np.inf, suppress=True, precision=4)
+        """if np.log2(binary_array.shape[0]) % 1 != 0:
             next_power_of_2_rows = 2 ** int(np.ceil(np.log2(binary_array.shape[0])))
             num_rows_to_add = next_power_of_2_rows - binary_array.shape[0]
             binary_array = np.vstack((binary_array, np.ones((num_rows_to_add, binary_array.shape[1]), dtype=binary_array.dtype)))
@@ -166,10 +167,11 @@ class StatePreparation:
             num_cols_to_add = next_power_of_2_cols - binary_array.shape[1]
             binary_array = np.hstack((binary_array, np.ones((binary_array.shape[0], num_cols_to_add), dtype=binary_array.dtype)))
         
-        np.set_printoptions(threshold=np.inf, suppress=True, precision=4)
+        
 
         # Stampa l'array
-        a = 4
+        a = 5
+  # Rimuove l'ultimo elemento dell'ultima riga
         reduced_array = np.zeros((a, a), dtype=int)
         #print("Ridotto",reduced_array)
         
@@ -186,9 +188,9 @@ class StatePreparation:
                 if ones_count > 2:  # Più 1 che 0
                     reduced_array[i, j] = 1
                 elif ones_count == 2:  # Tanti 1 quanti 0
-                    reduced_array[i, j] = 1
-                else:  # Più 0 che 1
                     reduced_array[i, j] = 0
+                else:  # Più 0 che 1
+                    reduced_array[i, j] = 0"""
 
         #reduced_array = 1 - reduced_array
         #print(reduced_array)
@@ -196,21 +198,29 @@ class StatePreparation:
 
         # Stampa l'array
         #print(reduced_array)
-        binary_array = reduced_array
+        #binary_array = reduced_array
         #print("Ridotto",binary_array)
-
-        norm_squared = np.sum(np.abs(binary_array) ** 2)
+        binary_list = binary_array.flatten().tolist()
+        
+        # Rimuovi gli elementi agli indici 0, 5, 30, e 35
+        # Poiché stiamo lavorando con una lista, dobbiamo rimuovere gli indici partendo dall'ultimo per evitare errori di indice
+        for index in sorted([0, 5, 30, 35], reverse=True):
+            del binary_list[index]
+        
+        
+        norm_squared = np.sum(np.abs(binary_list) ** 2)
         # Normalizza il vettore per la radice quadrata della norma dei quadrati degli amplitudi
-        normalized_params = binary_array / np.sqrt(norm_squared)
+        normalized_params = binary_list / np.sqrt(norm_squared)
         # Appiattisci la matrice in un vettore
         vectorized_matrix = normalized_params.flatten()
         # Crea uno stato quantistico Statevector dal vettore
+        print("La matrice nromalizzata e': ", vectorized_matrix, len(vectorized_matrix))
         quantum_state = Statevector(vectorized_matrix)
 
-        diagonal_elements = np.diag(vectorized_matrix)
+        #diagonal_elements = np.diag(vectorized_matrix)
 
         # Calcoliamo la somma dei quadrati di questi elementi
-        sum_of_squares = np.sum(np.square(diagonal_elements))
+        #sum_of_squares = np.sum(np.square(diagonal_elements))
 
         np.set_printoptions(threshold=np.inf, suppress=True, precision=4)
 
@@ -222,6 +232,7 @@ class StatePreparation:
         #print(f"[0][0] vale : {binary_array[0][0]}")
 
         num_qubits = int(np.log2(len(quantum_state)))
+        print("Ho calcolato num_qubits = ", num_qubits)
         num_digits = num_qubits if num_qubits > 0 else 1
         #self.num_qubits = num_qubits -- SONO SEMPRE 10
 
@@ -235,13 +246,31 @@ class StatePreparation:
         return self.binary
 
 
-    def ChooseRandomIMG(self):
-        rdn = random.randint(1, 2)
+    def ChooseRandomIMGFromMNIST(self):
+        
+        return self.ChooseRandomIMG()
+        """rdn = random.randint(1, 2)
         if rdn == 1:
             file_path = ".\\MINST_DATA\\t10k-images.idx3-ubyte"
         elif rdn == 2:
             file_path = ".\\MINST_DATA\\train-images.idx3-ubyte"
-        return file_path
+        return file_path"""
+    
+    def ChooseRandomIMG(self):
+        cartella = '.\\MNIST_Images'
+
+        # Ottieni una lista di tutti i file nella cartella
+        file_immaigni = [f for f in os.listdir(cartella) if f.endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif'))]
+
+        # Scegli un'immagine casuale
+        immagine_casuale = random.choice(file_immaigni)
+        percorso_immagine = os.path.join(cartella, immagine_casuale)
+        immagine = Image.open(percorso_immagine)
+        #immagine.show()
+        return percorso_immagine
+
+        # Stampa il nome del file selezionato
+        
 
     def LoadVectorMultiplo(self):
         #print("Si lavora con uno stato MISTO")
@@ -251,7 +280,7 @@ class StatePreparation:
         risultatiBinary = []
         for _ in range(n):
             # Scegliere un file casuale
-            file_path = os.path.join(current_dir, self.ChooseRandomIMG())
+            file_path = os.path.join(current_dir, self.ChooseRandomIMGFromMNIST())
             # Eseguire FromFileToStateVector e salvare il risultato nella lista
             risultatoSV, risultatoB = self.FromFileToStateVector(file_path)
             risultatiStateVector.append(risultatoSV)
@@ -261,7 +290,7 @@ class StatePreparation:
     def PrepareONECircuit(self):
         current_dir = os.path.dirname(os.path.realpath(__file__))
         # Scegliere un file casuale
-        file_path = os.path.join(current_dir, self.ChooseRandomIMG())
+        file_path = os.path.join(current_dir, self.ChooseRandomIMGFromMNIST())
         # Eseguire FromFileToStateVector e salvare il risultato nella lista
         risultato = self.FromFileToStateVector(file_path)
         #self.printCircuit(risultato)

@@ -63,11 +63,17 @@ class Result:
     
     def get_params(self,_num_qubits,_num_layer):
         #Per ora uso n_qubit e n_layer fissi
+        
         self._num_qubits = _num_qubits
         self.num_layers = _num_layer
+        print("N qubits: ", self._num_qubits, " n_layer: ", self.num_layers)
         x = self.get_param_resolver(self._num_qubits, self.num_layers)
         params = self.min_to_vqsd(x,self._num_qubits, self.num_layers)
         return params
+    
+    def setValues(self,_num_qubits,_num_layer):
+        self._num_qubits = _num_qubits
+        self.num_layers = _num_layer
     
     def load_img(self,n):
         state_prep = StatePreparation(n)
@@ -184,21 +190,27 @@ class Result:
         #assert len(param_list) % 6 == 0, "invalid number of parameters"
         
         param_values = np.array(list(param_list.values()))#ho tolto .values per una migliore visualizzazione
-        x = param_values.reshape(num_layer,2 ,num_qubits//2 ,12)
-        x_reshaped = x.reshape(num_layer, 2, num_qubits // 2, 4, 3)
+        print("Ho calcolato: ", len(param_values), " parametri")
+        if num_qubits % 2 == 1:
+            x = param_values.reshape(num_layer,2 ,num_qubits//2 ,12)
+        else:
+            x = param_values.reshape(num_layer,2 ,num_qubits//2 ,12)
+            x_reshaped = x.reshape(num_layer, 2, num_qubits // 2, 4, 3)
         #print(x_reshaped)
         return x_reshaped
 
     def get_param_resolver(self,num_qubits, num_layers):
         """Returns a ParamResolver for the parameterized unitary."""
-        num_angles = 12 * num_qubits * num_layers
+        if num_qubits % 2 == 1:
+            num_angles = (12 * num_qubits * num_layers)//2
+        else:
+            num_angles = 12 * num_qubits * num_layers
         angs = np.pi * (2 * np.random.rand(num_angles) - 1)
         params = ParameterVector('θ', num_angles)
         #print(params)
     
         # Creiamo un dizionario che mappa i parametri ai loro valori
         param_dict = dict(zip(params, angs))
-        
         return param_dict
     
     def printCircuit(self, circuit):

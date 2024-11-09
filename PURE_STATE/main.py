@@ -54,9 +54,24 @@ class Main:
             while(self.toFind is True):
                 self.c1_optimization(batchBinary)
 
+    def testOneStase(self):
+        a = np.array([1, 0])
+        batchBinary = [a]
+        self.rho = self.getRhoMath(batchBinary)
+        self.num_qubits = 1
+        for self.num_layer in range(1,self.totLayer + 1):
+            self.toFind = True
+            print("Ora lavoro con n_layer: ", self.num_layer)
+            self.a = self.res.get_params(self.num_qubits, self.num_layer)
+            while(self.toFind is True):
+                self.c1_optimization(batchBinary)
+
 
     def MNISTTest(self):
-        batchStates, batchBinary = self.res.load_img(17)
+        batchStates, batchBinary = self.res.load_img(2)
+        print("-----------------------------")
+        print(batchBinary[0])
+        print(batchBinary[1])
         self.rho = self.getRhoMath(batchBinary)
         self.num_qubits = int(np.log2(batchBinary[1].shape[0]))
         for self.num_layer in range(1,self.totLayer + 1):
