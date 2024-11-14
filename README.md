@@ -2,7 +2,7 @@
 **Project Objective:**
 The objective of this project is to achieve results comparable to those obtained through QPCA using a VQSD algorithm, with MNIST images as the starting input.
 
-**QPCA: Algorithm Purpose
+**QPCA: Algorithm Purpose**
 Principal Component Analysis (PCA) is a statistical technique used to reduce a dataset’s dimensionality while preserving as much of the original variability as possible. Its main purpose is to identify the principal directions in which the data varies most, projecting the original data into a lower-dimensional space.
 In practice, PCA finds a new coordinate basis where the axes (the principal components) are chosen to maximize data variance along each axis. This process is helpful when working with large datasets, as reducing dimensionality helps to lower noise and simplify the model. The main steps of PCA are:
 1. **Data Standardization**: To ensure all variables carry equal weight, data are normalized by subtracting the mean and dividing by the standard deviation.
