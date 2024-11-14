@@ -1,5 +1,9 @@
 **ENG:**
+--------------------------------------
+
+
 **Project Objective:**
+
 The objective of this project is to achieve results comparable to those obtained through QPCA using a VQSD algorithm, with MNIST images as the starting input.
 
 **QPCA: Algorithm Purpose**
@@ -44,6 +48,7 @@ C can be interpreted in three equivalent ways in the context of a density matrix
 C represents the upper bound of eigenvalue error \(C > \Delta\lambda\) and corresponds exactly to the eigenvector error \(C = \Delta v\).
 
 **IT:**
+--------------------------------------
 **Scopo del progetto**:
 Lo scopo del progetto è quello di ottenere i risultati ottenibile tramite la QPCA attraverso un algoritmo VQSD, come input di partenza sono state usate delle immagini MNIST
 
