@@ -36,7 +36,7 @@ class Main:
         #Max 1 ora di run
         #PER TESI
         #Simulatori quantistici + verifiche sperimentali(simulazione materiali complessi)
-        self.testTwoStates()
+        self.MNISTTest()
 
     def testTwoStates(self):
         a = np.array([1/np.sqrt(2), 0 ,0,1/np.sqrt(2)])
@@ -46,7 +46,7 @@ class Main:
         e = np.array([1/np.sqrt(2), 1/np.sqrt(2) ,0,0])
         print("TURNO 1")
         self.imgIniziale = a
-        batchBinary = [a]
+        batchBinary = [a,b,c,d,e]
         self.rho = self.getRhoMath(batchBinary)
         self.num_qubits = 2
         self.res.num_qubits = 2
@@ -75,7 +75,7 @@ class Main:
         self.a = self.paramsStandard()
         self.counter = 0
         print("counter: ", self.counter, " tot: ", countTOT)
-        while(self.counter != countTOT):
+        while(self.toFind is True):
             self.c1_optimization(batchBinary)
             self.counter+=1
             self.c1Array2Layer.append(self.min)
@@ -92,32 +92,15 @@ class Main:
         self.counter = 0
         print("counter: ", self.counter, " tot: ", countTOT)
         print("---------------------------------")
-        while(self.counter != countTOT):
+        while(self.toFind is True):
             self.c1_optimization(batchBinary)
             self.counter+=1
             self.c1Array3Layer.append(self.min)
         self.plot()
-        
-
-    def testOneStase(self):
-        a = np.array([1/np.sqrt(3), 1/np.sqrt(3) ,0,1/np.sqrt(3)])
-        batchBinary = [a]
-        self.imgIniziale = a
-        self.rho = self.getRhoMath(batchBinary)
-        self.num_qubits = 2
-        self.res.num_qubits = 2
-        for self.num_layer in range(1,self.totLayer + 1):
-            self.toFind = True
-            self.res.num_layers = self.num_layer
-            print("Ora lavoro con n_layer: ", self.num_layer)
-            self.a = self.paramsStandard()
-            while(self.toFind is True):
-                self.c1_optimization(batchBinary)
 
 
     def MNISTTest(self):
-        batchStates, batchBinary = self.res.load_img(1)
-        
+        batchStates, batchBinary = self.res.load_img(65)
         a = np.array([
     [0, 1, 1, 0],
     [1, 0, 0, 1],
@@ -140,11 +123,11 @@ class Main:
         #batchBinary = [normalized_array1,normalized_array2]
         self.rho = self.getRhoMath(batchBinary)
         #y = batchBinary[0].shape[0] * batchBinary[0].shape[0]
-        self.num_qubits = int(np.log2(batchBinary[0].shape[0]))
+        self.num_qubits = int(np.log2(len(batchBinary[0])))
         #self.num_qubits = int(np.log2(y))
         self.res.num_qubits = self.num_qubits
         print("TURNO 1")
-        self.num_layer = 1
+        self.num_layer = 4
         self.toFind = True
         self.res.num_layers = self.num_layer
         self.a = self.paramsStandard()
@@ -168,7 +151,7 @@ class Main:
         self.a = self.paramsStandard()
         self.counter = 0
         print("counter: ", self.counter, " tot: ", countTOT)
-        while(self.counter != countTOT):
+        while(self.toFind is True):
             self.c1_optimization(batchBinary)
             self.counter+=1
             self.c1Array2Layer.append(self.min)
@@ -185,7 +168,7 @@ class Main:
         self.a = self.paramsStandard()
         self.counter = 0
         print("counter: ", self.counter, " tot: ", countTOT)
-        while(self.counter != countTOT):
+        while(self.toFind is True):
             self.c1_optimization(batchBinary)
             self.counter+=1
             self.c1Array3Layer.append(self.min)
@@ -210,6 +193,7 @@ class Main:
         print(Lambda_T )
 
     def paramsStandard(self):
+        return self.res.get_params(self.num_qubits, self.num_layer)
         if self.num_qubits == 6 and self.num_layer == 1:#Se uso lo 0 da MNSIT
             #per 0 e 7
             data_list = [4.8271, -0.2266, -0.2307, 2.5973, -3.1726, 0.4472, 2.062, 2.7945, -1.6858, 1.7472, -2.0093, 2.4955, 2.767, -2.5138, 0.6689, -0.9537, -0.0695, 0.3661, 0.6099, -1.7153, -1.7218, -0.0639, 3.0658, 0.5961, 3.0716, 1.3141, 2.055, 2.5826, 1.829, 1.4141, -0.5007, 2.454, 2.9092, -2.7698, -1.5272, 2.6841, 0.3352, -1.0254, 0.553, 0.1876, 1.7407, 1.9197, -0.7875, 2.5172, -0.2287, 0.5562, 2.9556, 1.2559, 2.5721, -2.413, 2.4267, -0.8998, -0.3189, -2.9932, 2.9629, -2.9214, -2.1814, 2.2012, 2.1024, -2.7828, 2.5091, -1.021, -0.5078, -0.8287, -0.9777, 2.5078, 0.3045, -2.1724, -0.2387, 0.8422, 1.3412, -1.2194]
@@ -322,7 +306,7 @@ class Main:
          # Usa append sulla lista
 
         result = minimize(self.c1, flat_params, args=(k,), method="cobyla") 
-        #print("terminato run numero: ", self.counter, " con tempo passato: ", int((time.time() - self.timeRun)/60) , " minuti con valore minimo trovato: ", self.min)
+        print("terminato run numero: ", self.counter, " con tempo passato: ", int((time.time() - self.timeRun)/60) , " minuti con valore minimo trovato: ", self.min)
         #print("Il minimo ottenuto corrisponde a: ", self.min, " il tempo di esecuzione corrisponde a: ",int((time.time() - self.start_time)/60), " minuti")
         #Set num max di ripe o delta di errore, mettere che se trova C1 = 0 si ferma
         #result = minimize(self.testCirc, result.x, args=(vector,), method="cobyla") 
@@ -336,9 +320,6 @@ class Main:
             parametri = params.reshape(self.a.shape)
             dip = self.res.dip(parametri,batchStates)
             purity = self.load_purity(parametri,batchStates,100)
-
-            c1 = purity - dip
-            
             c1 = purity - dip
             if self.min > c1:
                 #print("Parametri ottimi trovati: ", parametri)
@@ -348,8 +329,11 @@ class Main:
             epsilon = 1.5e-1
             timeRunning = {
                 1: 60,
-                2: 120,
-                3: 300
+                2: 60,
+                3: 60,
+                4: 60*2,
+                5: 60*2,
+                6: 60*2,
             }.get(self.num_layer, 0)
             #epsilon = 0.5
             if c1 < epsilon or (time.time() - self.timeRun) > 60*timeRunning:
