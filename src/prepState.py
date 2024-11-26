@@ -17,6 +17,7 @@ from qiskit.visualization import plot_histogram
 class StatePreparation:
     def __init__(self, num_img):
         self.num_img = num_img
+        self.index = 0
 
     @property
     def num_qubits(self):
@@ -124,8 +125,9 @@ class StatePreparation:
     def randomMNSIT8x8(self):
         mnist = datasets.load_digits()
         # Sceglie un indice casuale
-        index = np.random.randint(0, len(mnist.images))
-        image = mnist.images[index]
+        
+        image = mnist.images[self.index]
+        self.index+=1
         
         # Visualizza l'immagine originale
         #plt.imshow(image, cmap='gray')

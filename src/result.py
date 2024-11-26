@@ -8,6 +8,7 @@ import os
 from qiskit.visualization import circuit_drawer
 from qiskit import QuantumCircuit
 from scipy.optimize import minimize
+import multiprocessing
 
 class Result:
 
@@ -70,7 +71,7 @@ class Result:
     def dip(self,params,batchStates):
         counts = {}
         tot = 0
-        nrep = 1000
+        nrep = 1000/4
         for ii in range(len(batchStates)):
             circuit = Dip_Pdip(params,batchStates[ii],self.num_layers)
             circ = circuit.getFinalCircuitDIP()
@@ -87,6 +88,55 @@ class Result:
         
         return self.overlap_from_count(counts,tot)
     
+    
+
+    def dip_worker(self,args):
+        """Funzione worker per calcolare i contatori DIP per un sottoinsieme di batchStates."""
+        params, sub_batchStates, num_layers, nrep = args
+        counts = {}
+        tot = 0
+        for state in sub_batchStates:
+            circuit = Dip_Pdip(params, state, num_layers)
+            circ = circuit.getFinalCircuitDIP()
+            count = circuit.obj_dip_counts(circ, nrep)
+            tot += nrep
+            for state, value in count.items():
+                if state in counts:
+                    counts[state] += value
+                else:
+                    counts[state] = value
+        return counts
+
+    def dip_parallel(self, params, batchStates):
+        counts = {}
+        nrep = 1500
+        tot = nrep * len(batchStates)
+        
+        num_processes = multiprocessing.cpu_count()  # Usa tutti i core disponibili
+
+        # Suddividi batchStates tra i processi
+        chunk_size = max(1, len(batchStates) // num_processes)
+        
+        chunks = [batchStates[i:i + chunk_size] for i in range(0, len(batchStates), chunk_size)]
+
+
+        # Prepara gli argomenti per i processi
+        pool_args = [(params, chunk, self.num_layers, nrep) for chunk in chunks]
+
+        # Esegui in parallelo
+        with multiprocessing.Pool(num_processes) as pool:
+            results = pool.map(self.dip_worker, pool_args)
+
+        # Combina i risultati dai vari processi
+        for result in results:
+            for state, value in result.items():
+                if state in counts:
+                    counts[state] += value
+                else:
+                    counts[state] = value
+        
+        return self.overlap_from_count(counts,tot)
+    
     def pdip(self,params,batchStates):
         
         ov = 0.0
@@ -96,7 +146,6 @@ class Result:
         return ov/len(batchStates)
     
     def overlap_from_count(self, counts, repetitions):
-        #print("Risultati per il dip: ", counts)
         zero_state = '0' * self.num_qubits
         zero_state_count = 0
         
@@ -160,7 +209,7 @@ class Result:
         num_angles = 12 * num_qubits * num_layers
         angs = np.pi * (2 * np.random.rand(num_angles) - 1)
         params = ParameterVector('θ', num_angles)
-        print("SONO PARAMS: ", len(params))
+        #print("SONO PARAMS: ", len(params))
     
         # Creiamo un dizionario che mappa i parametri ai loro valori
         param_dict = dict(zip(params, angs))
