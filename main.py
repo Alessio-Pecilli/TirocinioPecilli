@@ -6,6 +6,7 @@ import qiskit.quantum_info as qi
 from src.dip_pdip import Dip_Pdip
 from qiskit.quantum_info import Statevector
 import os
+from scipy.optimize import differential_evolution
 from qiskit.circuit import Parameter
 from qiskit import transpile
 from qiskit.visualization import circuit_drawer
@@ -15,6 +16,8 @@ from scipy.optimize import minimize
 from src.result import Result
 import matplotlib.pyplot as plt
 import time
+from datetime import datetime
+
 
 class Main:
 
@@ -35,8 +38,7 @@ class Main:
         #Plot cost -> Iterazioni(Confronto anche tra Lyaer)
         #Max 1 ora di run
         #PER TESI
-        #Simulatori quantistici + verifiche sperimentali(simulazione materiali complessi)
-        self.MNISTTest()
+        self.testTwoStates()
 
     def testTwoStates(self):
         a = np.array([1/np.sqrt(2), 0 ,0,1/np.sqrt(2)])
@@ -44,26 +46,34 @@ class Main:
         c = np.array([1/np.sqrt(2),0, 1/np.sqrt(2) ,0])
         d = np.array([1/np.sqrt(3), 0,1/np.sqrt(3) ,1/np.sqrt(3)])
         e = np.array([1/np.sqrt(2), 1/np.sqrt(2) ,0,0])
-        print("TURNO 1")
         self.imgIniziale = a
-        batchBinary = [a,b,c,d,e]
+        batchBinary = [a]
         self.rho = self.getRhoMath(batchBinary)
         self.num_qubits = 2
         self.res.num_qubits = 2
         self.toFind = True
-        self.num_layer = 1
+        self.num_layer = 2
         self.res.num_layers = self.num_layer
         self.timeRun = time.time()
             #print("Ora lavoro con n_layer: ", self.num_layer)
         self.a = self.paramsStandard()
         self.counter = 1
-        while(self.toFind is True):
-            self.c1_optimization(batchBinary)
-            self.counter+=1
-            self.c1Array1Layer.append(self.min)
+        #print("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+        for i in range(1,self.totLayer+1):
+            self.toFind = True
+            self.num_layer = i
+            self.res.num_layers = self.num_layer
+            self.timeRun = time.time()
+            self.a = self.paramsStandard()
+            self.min = 1
+            while(self.toFind is True):
+                #print("Inizio un ciclo di ottimizzazione con n layer: ", self.num_layer)
+                self.c1_optimization(batchBinary)
+                self.c1Array1Layer.append(self.min)
+            self.c1Array1Layer.append("-")    
         c1Array1Layer = np.array(self.c1Array1Layer)  # Converte in array NumPy
-        print("Con 2 Layer: ", c1Array1Layer)
-        
+        print("array:", c1Array1Layer)
+        """
         print("TURNO 2")
         self.min = 1
         self.timeRun = time.time()
@@ -96,7 +106,7 @@ class Main:
             self.c1_optimization(batchBinary)
             self.counter+=1
             self.c1Array3Layer.append(self.min)
-        self.plot()
+        self.plot()"""
 
 
     def MNISTTest(self):
@@ -126,21 +136,28 @@ class Main:
         self.num_qubits = int(np.log2(len(batchBinary[0])))
         #self.num_qubits = int(np.log2(y))
         self.res.num_qubits = self.num_qubits
-        print("TURNO 1")
-        self.num_layer = 4
+        self.num_layer = 3
         self.toFind = True
         self.res.num_layers = self.num_layer
         self.a = self.paramsStandard()
         self.timeRun = time.time()
             #print("Ora lavoro con n_layer: ", self.num_layer)
         self.counter = 1
-        while(self.toFind is True):
-            self.c1_optimization(batchBinary)
-            self.counter+=1
-            self.c1Array1Layer.append(self.min)
+        for i in range(3,self.totLayer+1):
+            print(self.totLayer)
+            self.toFind = True
+            self.num_layer = i
+            self.res.num_layers = self.num_layer
+            self.timeRun = time.time()
+            self.a = self.paramsStandard()
+            while(self.toFind is True):
+                print("Num layer: ", self.num_layer)
+                self.c1_optimization(batchBinary)
+                self.c1Array1Layer.append(self.min)
+            self.c1Array1Layer.append("-")    
         c1Array1Layer = np.array(self.c1Array1Layer)  # Converte in array NumPy
-        print("Con 1 Layer: ", c1Array1Layer)
-        print("TURNO 2")
+        print("array:", c1Array1Layer)
+        """print("TURNO 2")
         self.min = 1
         self.timeRun = time.time()
         countTOT = self.counter-1
@@ -172,7 +189,7 @@ class Main:
             self.c1_optimization(batchBinary)
             self.counter+=1
             self.c1Array3Layer.append(self.min)
-        self.plot()
+        self.plot()"""
 
     def pca_from_T(self,T):
         # 1. Calcolo autovalori e autovettori della matrice T
@@ -193,15 +210,17 @@ class Main:
         print(Lambda_T )
 
     def paramsStandard(self):
-        return self.res.get_params(self.num_qubits, self.num_layer)
-        if self.num_qubits == 6 and self.num_layer == 1:#Se uso lo 0 da MNSIT
+        
+        if self.num_qubits == 6 and self.num_layer == 3:#Se uso lo 0 da MNSIT
             #per 0 e 7
-            data_list = [4.8271, -0.2266, -0.2307, 2.5973, -3.1726, 0.4472, 2.062, 2.7945, -1.6858, 1.7472, -2.0093, 2.4955, 2.767, -2.5138, 0.6689, -0.9537, -0.0695, 0.3661, 0.6099, -1.7153, -1.7218, -0.0639, 3.0658, 0.5961, 3.0716, 1.3141, 2.055, 2.5826, 1.829, 1.4141, -0.5007, 2.454, 2.9092, -2.7698, -1.5272, 2.6841, 0.3352, -1.0254, 0.553, 0.1876, 1.7407, 1.9197, -0.7875, 2.5172, -0.2287, 0.5562, 2.9556, 1.2559, 2.5721, -2.413, 2.4267, -0.8998, -0.3189, -2.9932, 2.9629, -2.9214, -2.1814, 2.2012, 2.1024, -2.7828, 2.5091, -1.021, -0.5078, -0.8287, -0.9777, 2.5078, 0.3045, -2.1724, -0.2387, 0.8422, 1.3412, -1.2194]
+            data_list = [-3.4303, 0.0529, 1.5043, -0.9789, -1.3242, 2.5626, 0.1839, -2.9897, 1.6978, 1.2098, -1.2082, 2.9435, 2.7008, 0.7135, 2.7236, 1.3226, -1.5448, 2.3656, 0.2288, 2.8213, 2.2226, -1.797, -0.7605, 0.644, -1.1354, -2.8242, 2.5641, -1.1049, -2.7954, -1.8391, -1.5919, -2.106, 1.0983, -1.8143, 2.7647, -0.6653, 2.4634, 0.3005, -1.5956, -1.1268, -1.8003, 2.6279, 2.7314, -1.2663, -1.411, -1.7982, 1.6135, 0.3495, -1.8663, -1.7149, -0.8408, -1.0719, -0.1266, -2.251, -0.126, 0.0997, -1.4532, 1.8221, 0.5958, 2.3247, -0.1079, -2.1351, 0.1534, 2.456, -3.2946, -2.1624, -2.5935, 1.4077, 2.9927, -1.6982, -0.078, 3.0321, -2.0341, 0.4735, -1.5401, 2.7443, -1.7639, 2.2846, -1.205, -2.2631, -2.0621, 0.5173, -3.1594, -1.9718, -1.5924, 1.2644, -0.4314, -0.3493, -2.9163, -1.422, -0.7807, 1.0163, 4.0447, 0.5578, 0.7594, -3.1219, 2.6851, -0.3403, -0.9537, -1.6858, 0.2895, 2.6581, -2.8574, 2.0926, 1.2358, 0.3165, -0.0318, 0.7374, -0.5303, 2.2192, -2.0581, -1.1776, 0.3661, 1.7587, 2.7502, 2.7938, -1.8958, -1.3114, 1.6004, 2.1901, 2.4713, 1.2514, -0.0098, 0.9056, -1.3445, -1.0965, -1.3511, -1.5336, 1.3074, 2.1535, -1.597, 2.9764, -2.3068, 0.9977, -1.6774, 1.1786, -2.1408, -0.3592, -1.4986, 1.6022, -1.9729, 0.5384, 2.7768, -2.7119, 1.4904, 2.1244, 0.0211, 1.6448, 0.2469, 2.6461, 1.788, 3.0451, -2.0095, -0.6389, -0.6078, -2.2146, 1.951, 2.3453, 0.5079, -1.1223, -2.591, -1.4493, 1.1616, 0.9114, 2.0688, -2.6265, 1.9473, 1.3555, -1.4972, 0.8273, -0.3099, 0.4214, 1.6014, -1.3026, 1.2826, -0.7133, 2.3366, -1.2302, -1.5197, -1.1355, 1.5725, 1.2358, -0.0042, 0.506, -0.2098, 1.0108, -0.0666, -2.0169, 4.048, -0.0451, -1.0237, 3.232, -2.5393, 1.9612, 2.3981, 1.4633, 0.4017, 2.4867, -2.3338, 2.5855, 2.5112, 1.5824, 1.2811, -2.589, 3.0261, -0.1715, 4.486, 0.7788, 1.8908, -2.6274, -0.0595, 2.6808, 1.8305, 0.6877, -3.2681, 0.9944]
+
             #data_list = [ 1.51386077, -1.70203324, 1.85607109, 2.30895355, -1.36081905, -1.25963548,3.42352944, -1.44315902, 1.31116192, 1.27885328, 15.09812813, 1.47683429,0.8990097, -3.14073329, -1.14785431, 0.47205453, -3.17577445, -1.57255897, 0.64787145, 0.29711341, -0.64651245, -1.5391103, -1.65680379, -1.5301107, 22.46992636, 1.5394186, 5.6831592, 1.70814087, 1.97813529, 2.71828155,3.2970164, -3.17469452, 12.13407952, 0.38293945, -0.62746048, 9.27192198,-0.19312788, 0.51474739, 1.07061587, 1.57391989, -2.85726607, -2.50930985,-1.5919183, 0.27346589, 7.23699726, 2.39371459, 3.20194722, 6.82350133]
 
             x = np.array(data_list).reshape(self.num_layer,2 ,self.num_qubits//2 ,12)
             x_reshaped = x.reshape(self.num_layer, 2, self.num_qubits // 2, 4, 3)
             return x_reshaped
+        
         elif self.num_qubits == 4 and self.num_layer == 1:#semrpe con lo 0 scritto su a mano
             data_list = [
   1.33286165, -1.6360426,  1.89911712,  2.54946114, -1.33457995, -1.22788508, 
@@ -277,8 +296,10 @@ class Main:
 
         # Mostra il grafico
         plt.show()
-        
 
+    def plot10Array(self):
+        pass
+        
     def testDipPurity(self,vector):        
         vectorized_matrix = vector.flatten()
         print(vectorized_matrix)
@@ -304,9 +325,8 @@ class Main:
             k.append(self.getQc(a)) 
             #self.printCircuit(self.getQc(a))
          # Usa append sulla lista
-
-        result = minimize(self.c1, flat_params, args=(k,), method="cobyla") 
-        print("terminato run numero: ", self.counter, " con tempo passato: ", int((time.time() - self.timeRun)/60) , " minuti con valore minimo trovato: ", self.min)
+        result = minimize(self.c1, flat_params, args=(k,), method="Powell", tol=1e-2) 
+        print("terminato ciclo con: ", int((time.time() - self.timeRun)/60) , " minuti con ", self.num_layer, " layer con C1 = ", self.min, "\n sono le ", datetime.now().time())
         #print("Il minimo ottenuto corrisponde a: ", self.min, " il tempo di esecuzione corrisponde a: ",int((time.time() - self.start_time)/60), " minuti")
         #Set num max di ripe o delta di errore, mettere che se trova C1 = 0 si ferma
         #result = minimize(self.testCirc, result.x, args=(vector,), method="cobyla") 
@@ -318,26 +338,25 @@ class Main:
     def c1(self,params,batchStates):
         if self.toFind is True:
             parametri = params.reshape(self.a.shape)
-            dip = self.res.dip(parametri,batchStates)
-            purity = self.load_purity(parametri,batchStates,100)
+            #purity = self.load_purity(parametri,batchStates,1)
+            purity = 1
+            dip = self.res.dip_parallel(parametri,batchStates)
+
+            #dip = 1
             c1 = purity - dip
             if self.min > c1:
-                #print("Parametri ottimi trovati: ", parametri)
+                print("Parametri ottimi trovati: ", parametri)
+                print("C: ", purity, " - ", dip, " = ", c1,  "\nIl tempo di esecuzione corrisponde a: ",int((time.time() - self.timeRun)/60), " minuti, sono le ", datetime.now().time(), "\nil miglioramento corrisponde a: ", self.min - c1)
                 self.min = c1
-                #print("C: ", purity, " - ", dip, " = ", c1,  "\nIl tempo di esecuzione corrisponde a: ",int((time.time() - self.timeRun)/60), " minuti")
+                
                 self.a = parametri#DA PROVARE SE VA
-            epsilon = 1.5e-1
-            timeRunning = {
-                1: 60,
-                2: 60,
-                3: 60,
-                4: 60*2,
-                5: 60*2,
-                6: 60*2,
-            }.get(self.num_layer, 0)
+            epsilon = 10e-2
+            timeRunning = 60*1
             #epsilon = 0.5
-            if c1 < epsilon or (time.time() - self.timeRun) > 60*timeRunning:
-                self.toFind = False
+            """or (time.time() - self.timeRun) > 60*timeRunning"""
+            if c1 < epsilon:
+                self.toFind = False or (time.time() - self.timeRun) > 60*timeRunning
+                print("C1 = ",c1)
                 #self.c1Array1Layer.append(purity-dip)
                 optimized_params = params.reshape(self.a.shape)
                 file_path = "output.txt"  # Sostituisci con il percorso del file che desideri
@@ -347,7 +366,7 @@ class Main:
                 self.unitaria = self.getUnitaria(x.unitaria2)
                 self.work()
                 return 0
-            return purity - dip
+            return purity - dip + np.random.normal(0, 0.1)
         else:
             return 1
         
@@ -479,7 +498,7 @@ class Main:
         normalized_vector = eigenvector / norm
 
         # Pixelizzazione
-        pixelized_vector = np.where(np.abs(normalized_vector) > 0.25, 1, 0)
+        pixelized_vector = np.where(np.abs(normalized_vector) > 0.1, 1, 0)
 
         return pixelized_vector
     
@@ -496,10 +515,13 @@ class Main:
         print("Indici: ", indici)
         return indici
 
+if __name__ == '__main__':
+    from multiprocessing import freeze_support
+    freeze_support()  # Solo per sistemi Windows
+    start_time = time.time()
+    main = Main(start_time)
+    end_time = time.time()
 
-start_time = time.time()
-main = Main(start_time)
-end_time = time.time()
+    print(f"Tempo di esecuzione: {end_time - start_time:.2f} secondi")
 
-print(f"Tempo di esecuzione: {end_time - start_time:.2f} secondi")
         
