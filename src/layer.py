@@ -16,37 +16,17 @@ class LayerPreparation:
         self.state_prep_circ = state_prep_circ
         self.qubits = QuantumRegister(self._num_qubits)
         self.unitary_circ = QuantumCircuit(self.qubits)
-        
-        #print("NUMERO LAYER: ", num_layers)
-        #print("Devo applicare questi parametri: ", params)
            
         for l in range(num_layers):
-                #print("Applico correttamente i parametri")
-                #self.printCircuit(self.unitary_circ)
             self.layer(params[l][0], params[l][1],)
 
         #self.printCircuit(self.unitary_circ)
         return
     
     def layer(self, params, shifted_params):
-        """Implements a single layer of the diagonalizing unitary.
-
-        input:
-            params [type: numpy.ndarray]
-                parameters for the layer of gates.
-                shape should be (n // 2, 12) where n is the number of qubits
-
-            copy [type: int (0 or 1), default=0]
-                the copy of the state to apply the layer to
-            PER ORA SEMPRE = 0
-        modifies:
-            self.unitary_circ
-                appends the layer of operations to self.unitary_circ
-                
-        """
         n = self._num_qubits
         if params.size != self.num_angles_required_for_layer()/2:
-            raise ValueError("incorrect number of parameters for layer, params.size: ", params.size, " angoli richiesti: ", self.num_angles_required_for_layer()/2)
+            raise ValueError("Params.size: ", params.size, " angoli richiesti: ", self.num_angles_required_for_layer()/2)
 
         #shift = 2 * n * copy
         shift = 0 #non ho copie, lavoro con un singolo stato
@@ -54,17 +34,8 @@ class LayerPreparation:
             qubits = [self.qubits[ii + shift], self.qubits[ii + 1 + shift]]
             gate_params = params[ii // 2]
             self._apply_gate(qubits, gate_params)
-            
-        #self.printCircuit(self.unitary_circ)
-
-        stop = lambda n: n - 1 if n % 2 == 1 else n
 
         shift =  self._num_qubits * 0#0 = COPY
-        
-        """for ii in range(0, stop(n), 2):
-            iiq = ii + shift
-            self.printCircuit(self.unitary_circ)
-            self._apply_gate(self.qubits[iiq : iiq + 2], params[ii // 2])"""
         
         if n >= 2:
             for ii in range(1, n, 2):
@@ -75,8 +46,6 @@ class LayerPreparation:
          
 
     def _apply_gate(self, qubits, params):
-            """Helper function to append the two qubit gate."""
-            ##print("len q", len(qubits), "len par: ", len(params))
             q = qubits[0]
             p = params[0]
             self._rot(q,p)
@@ -95,14 +64,6 @@ class LayerPreparation:
 
 
     def _rot(self, qubit, params):
-        """Helper function that returns an arbitrary rotation of the form
-        R = Rz(params[2]) * Ry(params[1]) * Rx(params[0])
-        on the qubit, e.g. R |qubit>.
-
-        Note that order is reversed when put into the circuit. The circuit is:
-        |qubit>---Rx(params[0])---Ry(params[1])---Rz(params[2])---
-        """
-        #print("parames 0", params)
         self.unitary_circ.rx(params[0], qubit)
         self.unitary_circ.ry(params[1], qubit)
         self.unitary_circ.rz(params[2], qubit)
@@ -118,21 +79,14 @@ class LayerPreparation:
         return x_reshaped
 
     def get_param_resolver(self,num_qubits, num_layers):
-        """Returns a ParamResolver for the parameterized unitary."""
         num_angles = 12 * num_qubits * num_layers
         angs = np.pi * (2 * np.random.rand(num_angles) - 1)
         params = ParameterVector('θ', num_angles)
-        #print(params)
-    
-        # Creiamo un dizionario che mappa i parametri ai loro valori
         param_dict = dict(zip(params, angs))
         
         return param_dict
 
     def num_angles_required_for_layer(self):
-        """Returns the number of angles need in a single layer of the
-        diagonalizing unitary.
-        """
         return 12 * (self._num_qubits)
         "12 * 8 = 96"
 
