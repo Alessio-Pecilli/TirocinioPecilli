@@ -18,13 +18,6 @@ class Result:
     def evaluete_c1(self,purity,dip):
         return purity - dip
     
-    def work_for_one(self,params):#Prova a calcolarmi la purezza per uno stato
-        state, state_bin = self.load_img(1)
-        #print("I parametri sono: ", len(params), ": ", params)
-        circ = Dip_Pdip(params,state[0],self.num_layers)
-        a = circ.getFinalCircuitDS()
-        print("Purezza finale ottenuta:", 2*circ.obj_ds(a) -1)
-    
     def get_params(self,_num_qubits,_num_layer):
         #Per ora uso n_qubit e n_layer fissi
         self.num_qubits = _num_qubits
