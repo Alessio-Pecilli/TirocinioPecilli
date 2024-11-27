@@ -23,8 +23,8 @@ class Main:
         self.start_time = start_time
         self.min = 1
         self.res = Result()
-        self.DLambda = []
         self.c1Array1Layer = []
+        self.DLambda = []
         self.totLayer = 5
         self.testTwoStates()
 
