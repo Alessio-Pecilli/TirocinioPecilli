@@ -6,8 +6,6 @@ import qiskit.quantum_info as qi
 from src.dip_pdip import Dip_Pdip
 from qiskit.quantum_info import Statevector
 import os
-from scipy.optimize import differential_evolution
-from qiskit.circuit import Parameter
 from qiskit import transpile
 from qiskit.visualization import circuit_drawer
 from qiskit_aer import Aer
@@ -17,7 +15,7 @@ from src.result import Result
 import matplotlib.pyplot as plt
 import time
 from datetime import datetime
-
+import random
 
 class Main:
 
@@ -25,19 +23,9 @@ class Main:
         self.start_time = start_time
         self.min = 1
         self.res = Result()
-        self.c1Array1Layer = []
-        self.c1Array2Layer = []
-        self.c1Array3Layer = []
-        self.RhoArray = []
-        self.DArray = []
-        self.LArray = []
         self.DLambda = []
-        self.totLayer = 1
-        #Se bloccato per troppo aumento N Layer
-        #Implementare ansatz per pari
-        #Plot cost -> Iterazioni(Confronto anche tra Lyaer)
-        #Max 1 ora di run
-        #PER TESI
+        self.c1Array1Layer = []
+        self.totLayer = 5
         self.testTwoStates()
 
     def testTwoStates(self):
@@ -50,87 +38,26 @@ class Main:
         batchBinary = [a]
         self.rho = self.getRhoMath(batchBinary)
         self.num_qubits = 2
-        self.res.num_qubits = 2
+        self.res.num_qubits = self.num_qubits
         self.toFind = True
         self.num_layer = 2
         self.res.num_layers = self.num_layer
         self.timeRun = time.time()
-            #print("Ora lavoro con n_layer: ", self.num_layer)
         self.a = self.paramsStandard()
         self.counter = 1
-        #print("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-        for i in range(1,self.totLayer+1):
-            self.toFind = True
-            self.num_layer = i
-            self.res.num_layers = self.num_layer
-            self.timeRun = time.time()
-            self.a = self.paramsStandard()
-            self.min = 1
-            while(self.toFind is True):
+        self.min = 1
+        while(self.toFind is True):
                 #print("Inizio un ciclo di ottimizzazione con n layer: ", self.num_layer)
-                self.c1_optimization(batchBinary)
-                self.c1Array1Layer.append(self.min)
-            self.c1Array1Layer.append("-")    
+            self.c1_optimization(batchBinary)
+            self.c1Array1Layer.append(self.min)
         c1Array1Layer = np.array(self.c1Array1Layer)  # Converte in array NumPy
         print("array:", c1Array1Layer)
-        """
-        print("TURNO 2")
-        self.min = 1
-        self.timeRun = time.time()
-        countTOT = self.counter-1
-        self.toFind = True
-        self.num_layer+=1  
-        self.res.num_layers = self.num_layer
-            #print("Ora lavoro con n_layer: ", self.num_layer)
-        self.a = self.paramsStandard()
-        self.counter = 0
-        print("counter: ", self.counter, " tot: ", countTOT)
-        while(self.toFind is True):
-            self.c1_optimization(batchBinary)
-            self.counter+=1
-            self.c1Array2Layer.append(self.min)
-        c2Array1Layer = np.array(self.c1Array2Layer)  # Converte in array NumPy
-        print("Con 2 Layer: ", c2Array1Layer)
-        print("TURNO 3")
-        self.min = 1
-        self.timeRun = time.time()
-        self.toFind = True
-        self.num_layer+=1  
-        self.res.num_layers = self.num_layer
-            #print("Ora lavoro con n_layer: ", self.num_layer)
-        self.a = self.paramsStandard()
-        self.counter = 0
-        print("counter: ", self.counter, " tot: ", countTOT)
-        print("---------------------------------")
-        while(self.toFind is True):
-            self.c1_optimization(batchBinary)
-            self.counter+=1
-            self.c1Array3Layer.append(self.min)
-        self.plot()"""
+
+    
 
 
     def MNISTTest(self):
         batchStates, batchBinary = self.res.load_img(65)
-        a = np.array([
-    [0, 1, 1, 0],
-    [1, 0, 0, 1],
-    [1, 0, 0, 1],
-    [0, 1, 1, 0]
-])
-        norm_factor = np.sqrt(np.sum(a**2))
-
-        # Normalizza l'array
-        normalized_array1 = a / norm_factor
-        b = np.array([
-    [1, 1, 1, 0],
-    [0, 0, 1, 0],
-    [0, 1, 0, 0],
-    [0, 1, 0, 0]
-])
-        norm_factor = np.sqrt(np.sum(b**2))
-        # Normalizza l'array
-        normalized_array2 = b / norm_factor
-        #batchBinary = [normalized_array1,normalized_array2]
         self.rho = self.getRhoMath(batchBinary)
         #y = batchBinary[0].shape[0] * batchBinary[0].shape[0]
         self.num_qubits = int(np.log2(len(batchBinary[0])))
@@ -143,64 +70,22 @@ class Main:
         self.timeRun = time.time()
             #print("Ora lavoro con n_layer: ", self.num_layer)
         self.counter = 1
-        for i in range(3,self.totLayer+1):
-            print(self.totLayer)
-            self.toFind = True
-            self.num_layer = i
-            self.res.num_layers = self.num_layer
-            self.timeRun = time.time()
-            self.a = self.paramsStandard()
-            while(self.toFind is True):
-                print("Num layer: ", self.num_layer)
-                self.c1_optimization(batchBinary)
-                self.c1Array1Layer.append(self.min)
-            self.c1Array1Layer.append("-")    
-        c1Array1Layer = np.array(self.c1Array1Layer)  # Converte in array NumPy
+        while(self.toFind is True):
+            print("Num layer: ", self.num_layer)
+            self.c1_optimization(batchBinary)
+            self.c1Array1Layer.append(self.min) 
+        c1Array1Layer = np.array(self.c1Array1Layer)  
         print("array:", c1Array1Layer)
-        """print("TURNO 2")
-        self.min = 1
-        self.timeRun = time.time()
-        countTOT = self.counter-1
-        self.toFind = True
-        self.num_layer+=1  
-        self.res.num_layers = self.num_layer
-            #print("Ora lavoro con n_layer: ", self.num_layer)
-        self.a = self.paramsStandard()
-        self.counter = 0
-        print("counter: ", self.counter, " tot: ", countTOT)
-        while(self.toFind is True):
-            self.c1_optimization(batchBinary)
-            self.counter+=1
-            self.c1Array2Layer.append(self.min)
-        c1Array2Layer = np.array(self.c1Array2Layer)  # Converte in array NumPy
-        print("Con 2 Layer: ", c1Array2Layer)
-        
-        print("TURNO 3")
-        self.min = 1
-        self.timeRun = time.time()
-        self.toFind = True
-        self.num_layer+=1  
-        self.res.num_layers = self.num_layer
-            #print("Ora lavoro con n_layer: ", self.num_layer)
-        self.a = self.paramsStandard()
-        self.counter = 0
-        print("counter: ", self.counter, " tot: ", countTOT)
-        while(self.toFind is True):
-            self.c1_optimization(batchBinary)
-            self.counter+=1
-            self.c1Array3Layer.append(self.min)
-        self.plot()"""
 
     def pca_from_T(self,T):
-        # 1. Calcolo autovalori e autovettori della matrice T
+        
         eigenvalues, U_T = np.linalg.eigh(T)
         
-        # 2. Ordina autovalori e autovettori in ordine decrescente
+        
         idx = eigenvalues.argsort()[::-1]
         eigenvalues = eigenvalues[idx]
         U_T = U_T[:, idx]
         
-        # 3. Costruisci la matrice diagonale Lambda_T
         Lambda_T = np.diag(eigenvalues)
         
         print('Autovettori: ')
@@ -338,11 +223,8 @@ class Main:
     def c1(self,params,batchStates):
         if self.toFind is True:
             parametri = params.reshape(self.a.shape)
-            #purity = self.load_purity(parametri,batchStates,1)
-            purity = 1
+            purity = self.load_purity(parametri,batchStates,1)
             dip = self.res.dip_parallel(parametri,batchStates)
-
-            #dip = 1
             c1 = purity - dip
             if self.min > c1:
                 print("Parametri ottimi trovati: ", parametri)
@@ -380,15 +262,6 @@ class Main:
         img = Image.open(image_path)
         img.show()
     
-    def load_purity(self,params,batch,nrep):
-        ov = 0.0
-        for ii in range(len(batch)):
-            circuit = Dip_Pdip(params,batch[ii],1)
-            ov += circuit.obj_ds(circuit.getFinalCircuitDS())    
-            #print("OV: ",ov)     
-        f = ov/(len(batch) * nrep)
-        return (2*f)-1
-    
     def getQc(self,qs):#Il circuito
         quantum_state = Statevector(qs)
         qc = QuantumCircuit(quantum_state.num_qubits)
@@ -408,28 +281,15 @@ class Main:
         matrice = np.where(rho < 0.1, 0, rho)
         #print("Rho approssimato:")
         #print(matrice)
-        #print("Matrice unitaria:", unitary.shape)
+        #print("Matrice unitaria:", unitary)
         
         #print("Rho da input: ",rho)
         U = L.T.conj()
         U_conj_T = L
         D = np.matmul(np.matmul(U_conj_T,rho),U)
         rho = np.matmul(np.matmul(U,D),U_conj_T)
-        #print("Rho calcolato a partire da U e D: ", rho)
-        self.RhoArray.append(rho)
-        self.DArray.append(D)
-        self.DArray.append(L)
-        #print("D a precisione 2:")
         np.set_printoptions(precision=2)
-        #print(D)
-        #print("L:")
-        #print(L)
-        #print(L)
-        # Applica la condizione: se l'elemento è < 0.9, diventa 0; altrimenti 1
         matrice = np.where(D < 0.1, 0, D)
-        #print("D approssimato:")
-        #print(matrice)
-        #print("------------------")
         file_path = "output.txt"  # Sostituisci con il percorso del file che desideri
 
         with open(file_path, 'w') as f:
