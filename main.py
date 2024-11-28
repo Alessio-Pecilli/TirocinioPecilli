@@ -273,7 +273,16 @@ class Main:
         for a in batch:
             val += np.outer(a, a.conj())
         print("Rho calcolato:\n", val/len(batch))
-        return val/len(batch)    
+        return val/len(batch)
+
+    def load_purity(self,params,batch,nrep):
+        ov = 0.0
+        for ii in range(len(batch)):
+            circuit = Dip_Pdip(params,batch[ii],1)
+            ov += circuit.obj_ds(circuit.getFinalCircuitDS())    
+            #print("OV: ",ov)     
+        f = ov/(len(batch) * nrep)
+        return (2*f)-1
     
     def work(self):
         L = self.unitaria.data
