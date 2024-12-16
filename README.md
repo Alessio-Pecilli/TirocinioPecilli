@@ -23,8 +23,8 @@ In particular, QPCA utilizes quantum algorithms to compute the principal compone
 - **Data Handling Efficiency**: QPCA is particularly useful when dealing with massive datasets or tackling problems that require high computational complexity.
 
 **VQSD: Algorithm Purpose**
-The goal of the VQSD algorithm is to output the Eigenvalues and Eigenvectors of a given quantum state ρ. This state, along with a copy, is passed through a quantum circuit \(U(\theta)\), with parameters \(\theta\) initialized randomly.
-By executing the circuit a sufficient number of times, the objective is to optimize the parameters in order to minimize the cost function \(C(U(\theta))\). Once the cost function is optimized, the optimal \(\theta\) parameters will allow us to obtain the desired Eigenvalues and Eigenvectors.
+The goal of the VQSD algorithm is to output the Eigenvalues and Eigenvectors of a given quantum state ρ. This state, along with a copy, is passed through a quantum circuit U(θ), with parameters θ initialized randomly.
+By executing the circuit a sufficient number of times, the objective is to optimize the parameters in order to minimize the cost function (C(U(θ)). Once the cost function is optimized, the optimal θ parameters will allow us to obtain the desired Eigenvalues and Eigenvectors.
 The quantum state represented by ρ may be either pure or mixed:
 - **Pure State**:
   - Perfectly known state (maximum system knowledge)
@@ -34,18 +34,18 @@ The quantum state represented by ρ may be either pure or mixed:
   - Uncertainty in both classical and quantum measurement
 
 **Cost Function C**
-The goal is to find parameters \(\theta\) and a sequence of gates \(Up(\theta)\) such that \(\theta^* = \arg \min_{\theta} C(Up(\theta))\).
-Thus, the aim is to find a cost function \(C\) that can be efficiently calculated on classical-quantum hardware. To this end, cost functions \(C\) that can be expressed in terms of the purity of a quantum state are considered.
+The goal is to find parameters θ and a sequence of gates Up(θ) such that **θ∗ = arg min θ C(Up(θ))**
+Thus, the aim is to find a cost function (C that can be efficiently calculated on classical-quantum hardware. To this end, cost functions \(C\) that can be expressed in terms of the purity of a quantum state are considered.
 Calculating the purity of a state ψ with a quantum computer exponentially reduces the number of calculations, leading to linear complexity.
 The cost function is defined as follows:
-\[ C(Up(\theta)) = \text{Tr}(\psi^2) - \text{Tr}(Z(\psi^2)) \]
+**C(Up(θ)) = Tr(ψ2) − Tr(Z(ψ2))**
 It is important to note:
-\[ C(Up(\psi)) = 0 \iff \psi = Z(\psi) \]
+**C(Up(ψ)) = 0 ⇐⇒ ψ = Z(ψ)**
 C can be interpreted in three equivalent ways in the context of a density matrix:
 - The minimal distance between the state ψ and states that are diagonal only
-- The distance between the state ψ and \(Z(\psi)\)
+- The distance between the state ψ and Z(ψ)
 - The squared sum of the absolute values of the off-diagonal elements of ψ, representing quantum coherence
-C represents the upper bound of eigenvalue error \(C > \Delta\lambda\) and corresponds exactly to the eigenvector error \(C = \Delta v\).
+C represents the upper bound of eigenvalue error C > ∆λ and corresponds exactly to the eigenvector error C = ∆v.
 
 **IT:**
 --------------------------------------
