@@ -50,7 +50,7 @@ C represents the upper bound of eigenvalue error C > ∆λ and corresponds exact
 **IT:**
 --------------------------------------
 **Scopo del progetto**:
-Lo scopo del progetto è quello di ottenere i risultati ottenibile tramite la QPCA attraverso un algoritmo VQSD, come input di partenza sono state usate delle immagini MNIST
+Lo scopo del progetto è quello di ottenere i risultati ottenibili tramite la QPCA attraverso un algoritmo VQSD, come input di partenza sono state usate delle immagini MNIST
 
 **QPCA: Scopo dell’algoritmo**
 La PCA (Principal Component Analysis) è una tecnica statistica utilizzata per ridurre la dimensionalità di un dataset, mantenendo il più possibile la variabilità originale. Il suo scopo principale è quello di identificare le direzioni principali in cui i dati variano
